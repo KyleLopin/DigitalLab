@@ -1,0 +1,10 @@
+[project]
+name = "digitallab"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "manim>=0.19.0",
+    "matplotlib>=3.10.6",
+    "schemdraw>=0.21",
+]
