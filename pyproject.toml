@@ -7,4 +7,5 @@ dependencies = [
     "manim>=0.19.0",
     "matplotlib>=3.10.6",
     "schemdraw>=0.21",
+    "sympy>=1.14.0",
 ]
