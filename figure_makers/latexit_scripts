@@ -1,0 +1,112 @@
+\documentclass{article}
+\usepackage[table]{xcolor} % for shading
+\usepackage{array} % for custom column widths
+
+\begin{document}
+
+% AND Gate
+\[
+\begin{array}{|>{\centering\arraybackslash}p{1.2cm}|
+                >{\centering\arraybackslash}p{1.2cm}|
+                >{\centering\arraybackslash}p{2.2cm}|
+                >{\centering\arraybackslash}p{2.2cm}|}
+\hline
+\rowcolor{gray!30} \multicolumn{4}{|c|}{\textbf{AND Gate}} \\
+\hline
+\rowcolor{gray!15} Input A & Input B & Expected Outcome & Measured Outcome \\
+\hline
+0 & 0 &  &  \\
+\hline
+0 & 1 &  &  \\
+\hline
+1 & 0 &  &  \\
+\hline
+1 & 1 &  &  \\
+\hline
+\end{array}
+\]
+
+% OR Gate
+\[
+\begin{array}{|>{\centering\arraybackslash}p{1.2cm}|
+                >{\centering\arraybackslash}p{1.2cm}|
+                >{\centering\arraybackslash}p{2.2cm}|
+                >{\centering\arraybackslash}p{2.2cm}|}
+\hline
+\rowcolor{gray!30} \multicolumn{4}{|c|}{\textbf{OR Gate}} \\
+\hline
+\rowcolor{gray!15} Input A & Input B & Expected Outcome & Measured Outcome \\
+\hline
+0 & 0 &  &  \\
+\hline
+0 & 1 &  &  \\
+\hline
+1 & 0 &  &  \\
+\hline
+1 & 1 &  &  \\
+\hline
+\end{array}
+\]
+
+% NAND Gate
+\[
+\begin{array}{|>{\centering\arraybackslash}p{1.2cm}|
+                >{\centering\arraybackslash}p{1.2cm}|
+                >{\centering\arraybackslash}p{2.2cm}|
+                >{\centering\arraybackslash}p{2.2cm}|}
+\hline
+\rowcolor{gray!30} \multicolumn{4}{|c|}{\textbf{NAND Gate}} \\
+\hline
+\rowcolor{gray!15} Input A & Input B & Expected Outcome & Measured Outcome \\
+\hline
+0 & 0 &  &  \\
+\hline
+0 & 1 &  &  \\
+\hline
+1 & 0 &  &  \\
+\hline
+1 & 1 &  &  \\
+\hline
+\end{array}
+\]
+
+% NOR Gate
+\[
+\begin{array}{|>{\centering\arraybackslash}p{1.2cm}|
+                >{\centering\arraybackslash}p{1.2cm}|
+                >{\centering\arraybackslash}p{2.2cm}|
+                >{\centering\arraybackslash}p{2.2cm}|}
+\hline
+\rowcolor{gray!30} \multicolumn{4}{|c|}{\textbf{NOR Gate}} \\
+\hline
+\rowcolor{gray!15} Input A & Input B & Expected Outcome & Measured Outcome \\
+\hline
+0 & 0 &  &  \\
+\hline
+0 & 1 &  &  \\
+\hline
+1 & 0 &  &  \\
+\hline
+1 & 1 &  &  \\
+\hline
+\end{array}
+\]
+
+% NOT Gate
+\[
+\begin{array}{|>{\centering\arraybackslash}p{1.5cm}|
+                >{\centering\arraybackslash}p{2.5cm}|
+                >{\centering\arraybackslash}p{2.5cm}|}
+\hline
+\rowcolor{gray!30} \multicolumn{3}{|c|}{\textbf{NOT Gate}} \\
+\hline
+\rowcolor{gray!15} Input A & Expected Outcome & Measured Outcome \\
+\hline
+0 &  &  \\
+\hline
+1 &  &  \\
+\hline
+\end{array}
+\]
+
+\end{document}

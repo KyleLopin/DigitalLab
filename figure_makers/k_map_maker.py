@@ -265,7 +265,7 @@ def make_data_set(x_vars=("A","B"), y_vars=("C","D"),
 
 if __name__ == "__main__":
     # 2-variable K-map (2x2). Example split: A on columns, B on rows.
-    # g2 = blank_kmap_by_vars(x_vars=("A",), y_vars=("B",))
+    g2 = blank_kmap_by_vars(x_vars=("A",), y_vars=("B",))
     # draw_kmap(g2, x_vars=("A",), y_vars=("B",), save_fig=False)
 
 
@@ -276,31 +276,45 @@ if __name__ == "__main__":
     g3 = blank_kmap_by_vars(x_vars=("A"), y_vars=("B", "C"))
     g3_f = make_data_set(
         x_vars=("A"), y_vars=("B", "C"),
-        minterms={0, 1, 2, 5}, dont_cares={6, 7}
+        minterms={0, 1, 3}, dont_cares={4, 5},
+        maxterms={2, 6, 7}
     )
     # draw_kmap(g3, x_vars=("A"), y_vars=("B" ,"C"),
-    #           data_set=g3_f, save_fig=False)
+    #           data_set=g3_f, save_fig="TestBench_video_exercise.png")
 
     # 4-variable K-map (4x4). Common split: AB on columns, CD on rows.
-    # g4 = blank_kmap_by_vars(x_vars=("A","B"), y_vars=("C","D"))
+    g4 = blank_kmap_by_vars(x_vars=("A","B"), y_vars=("C","D"))
     # Save to file example:
-    # draw_kmap(g4, x_vars=("A","B"), y_vars=("C","D"), save_fig="kmap_4var.png")
+    draw_kmap(g4, x_vars=("A","B"), y_vars=("C","D"), save_fig="kmap_4var.png")
     # draw_kmap(g4, x_vars=("A","B"), y_vars=("C","D"), save_fig=False)
 
 
     g4 = make_data_set(
         x_vars=("A", "B"), y_vars=("C", "D"),
-        minterms={0, 1, 2, 5}, dont_cares={6, 14}
+        minterms={0, 2, 5, 10}, dont_cares={3, 6, 9, 13, 14, 15}
     )
-    eqn = "A'CD + B'C + AD'"
+    # eqn = "A'CD + B'C + AD'"
     # mins = equation_to_minterms(eqn, variables=("A", "B", "C", "D"))
-    mins = [1, 4, 8, 9, 12, 14]
-    print("Minterms:", mins)
-    dont_cares = {3, 7, 11, 15}
-    g4 = make_data_set(
-        x_vars=("A", "B"), y_vars=("C", "D"),
-        minterms=mins, dont_cares=dont_cares
-    )
+    # mins = [1, 4, 8, 9, 12, 14]
+    # print("Minterms:", mins)
+    # dont_cares = {3, 7, 11, 15}
+    # g4 = make_data_set(
+    #     x_vars=("A", "B"), y_vars=("C", "D"),
+    #     minterms=mins, dont_cares=dont_cares
+    # )
     print(g4)
+    # draw_kmap(g4, x_vars=("A", "B"), y_vars=("C", "D"), data_set=g4,
+    #           save_fig="4-var.png")
+    # eqn = "xy + yz′ + x'z'"
+    eqn = "xy+yz'+x'z'"
+    mins = equation_to_minterms(eqn, variables=("x", "y", "z"))
+
+    print("Minterms:", mins)
+    # dont_cares = {3, 7, 11, 15}
+    # g4 = make_data_set(
+    #     x_vars=("x"), y_vars=("y", "z"),
+    #     minterms=mins
+    # )
+    # print(g4)
     draw_kmap(g4, x_vars=("A", "B"), y_vars=("C", "D"), data_set=g4,
-              save_fig="4-var.png")
+              save_fig="3-var.png")
