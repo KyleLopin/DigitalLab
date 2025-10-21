@@ -26,7 +26,7 @@ class Mux4(ic.Multiplexer):
             ],
             edgepadH=-.5,
             pinspacing=0.8,
-            size=(2.6, 2.0),
+            size=(2.6, 3.4),
             **kwargs
         )
 
@@ -36,14 +36,14 @@ with sd.Drawing() as d:
     ffs = []
     n = 4
     seg=None
-    for i in range(4):
+    for i in range(n):
         if seg:
-            ff = d.add(ic.DFlipFlop(size=(2,3)).at(seg.end))
+            ff = d.add(ic.DFlipFlop(size=(2,3)).anchor('D').at(seg.end))
         else:
             ff = d.add(ic.DFlipFlop(size=(2,3)))
         ffs.append(ff)
-        d.add(lines.Line().at(ff.Q).right(d.unit/4))
-        d.add(lines.Line().up(d.unit / 2))
+        d.add(lines.Line().at(ffs[i].Q).right(d.unit/4))
+        d.add(lines.Line().up(d.unit))
         seg = d.add(lines.Line().right(d.unit / 4))
         mux = d.add(Mux4(inputs=4).anchor('D0').at(seg.end).scale(0.7))
 
