@@ -10,9 +10,10 @@ __author__ = "Kyle Vitautas Lopin"
 import schemdraw as sd
 import schemdraw.elements as elm
 from schemdraw.elements import lines
+import schemdraw.logic as logic
 
 # local files
-from base import CPU_L, Mem, RAM
+from schematic_makers.ALU.base import CPU_L, RAM
 
 
 def make_7_seg():
@@ -72,6 +73,34 @@ def cpu_for_ram(filename=None):
         d.save(filename)
 
 
+def timing_schematic_1(filename=None):
+    """ To show a hazard """
+    with sd.Drawing() as d:
+        # 3-input AND gate, output labeled F
+        and3 = d.add(logic.And(3).right().scale(2))
+
+        # Inputs B and C go straight into the AND
+        d += logic.Line().left(d.unit*0.1).at(and3.in1).label('B', 'left')
+        d += logic.Line().left(d.unit*0.1).at(and3.in2).label('C', 'left')
+        seg = d.add(lines.Line().at(and3.in3).left(d.unit*0.2))
+
+        # D goes through a NOT gate before the AND
+        notd = d.add(
+            logic.Not()
+            .at(seg.end)  # place NOT so its output is at the 3rd AND input
+            .anchor('out')
+            .right().label('D', 'left')
+        )
+
+        seg = d.add(lines.Line().at(and3.out).right(d.unit*0.5).label('E', 'bottom'))
+        or2 = d.add(logic.Or().anchor("in2").scale(2))
+        d.add(lines.Line().at(or2.in1).right(d.unit*0.1).label('A', 'left'))
+        d.add(lines.Line().at(or2.out).right(d.unit*0.1).label('F', 'top'))
+        if filename:
+            d.save(filename)
+
+
 if __name__ == '__main__':
     # make_ram_bus_up(filename="RAM_w_bus_up.pdf")
-    cpu_for_ram(filename="images/RAM_8bit_expand.pdf")
+    # cpu_for_ram(filename="images/RAM_8bit_expand.pdf")
+    timing_schematic_1(filename="hazard_1.pdf")
