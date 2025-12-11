@@ -48,29 +48,51 @@ class TruthTable(VGroup):
 
         self.inputs = list(inputs)
         self.outputs = list(outputs)
+        # this works for 1 output
+        # self.minterms = set(minterms or [])
+        # self.dont_cares = set(dont_cares or [])
 
-        self.minterms = set(minterms or [])
-        self.dont_cares = set(dont_cares or [])
+        # ---- normalize minterms for multi-output ----
+        # One output: minterms = [1,3,4]
+        # Multi-output: minterms = [[...], [...], ...]
+        n_outputs = len(self.outputs)
+        print(n_outputs)
+        if n_outputs == 1:
+            minterm_lists = [minterms or []]
+        else:
+            # ensure we have a list per output
+            minterm_lists = minterms or [[] for _ in range(n_outputs)]
+        print(minterm_lists)
+        self.minterm_sets = [set(lst) for lst in minterm_lists]
+        if dont_cares is None:
+            dont_care_lists = [[] for _ in range(n_outputs)]
+        elif n_outputs == 1:
+            dont_care_lists = [dont_cares]
+        else:
+            dont_care_lists = dont_cares
+        self.dont_care_sets = [set(lst) for lst in dont_care_lists]
 
         n_inputs = len(self.inputs)
         num_rows = 2 ** n_inputs
 
         # Build rows: each row = input bits + output bits (as strings)
-        rows = []
+        body_rows = []
 
         for i in range(num_rows):
             # binary representation of the input combination
             input_bits = list(f"{i:0{n_inputs}b}")
 
-            # For now: assume ONE output; extend later if needed
-            if i in self.dont_cares:
-                out_val = "X"
-            elif i in self.minterms:
-                out_val = "1"
-            else:
-                out_val = "0"
+            # output bits for each output column
+            out_vals = []
+            for j in range(n_outputs):
+                if i in self.dont_care_sets[j]:
+                    out_vals.append("X")
+                elif i in self.minterm_sets[j]:
+                    out_vals.append("1")
+                else:
+                    out_vals.append("0")
 
-            rows.append(input_bits + [out_val])
+            body_rows.append(input_bits + out_vals)
 
         headers = self.inputs + self.outputs
 
@@ -78,7 +100,7 @@ class TruthTable(VGroup):
 
         # Create the actual manim Table
         table = Table(
-            rows,
+            body_rows,
             col_labels=col_labels,
             element_to_mobject=lambda x: Text(str(x)),
             include_outer_lines=False,
@@ -183,7 +205,7 @@ class TruthTableExample(Scene):
         tt = TruthTable(
             inputs=["A", "B", "C"],
             outputs=["x", "y"],
-            minterms=[1, 3, 4],
+            minterms=[[1, 3, 4], [0, 2, 5, 6]],
         )
         tt.to_edge(UP)
 
