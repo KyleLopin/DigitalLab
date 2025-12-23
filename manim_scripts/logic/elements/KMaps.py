@@ -11,6 +11,9 @@ __author__ = "Kyle Vitautas Lopin"
 
 from manim import *
 
+config.font = "Menlo"
+config.max_files_cached = 500
+
 
 def gray_code(n_bits: int):
     """Return list of Gray-code bit strings of length n_bits."""
@@ -41,25 +44,48 @@ class KarnaughMap(VGroup):
 
     def __init__(
         self,
-        num_vars: int,
-        values,
-        var_names=None,
-        cell_size: float = 0.9,
-        gray_fontsize = 28,
+        num_vars: int, var_names=None, values=None,
+        minterms=None, dont_cares=None,
+        cell_size: float = 0.9, gray_fontsize = 28,
+        value_fontsize = 32,
+        stroke_width=2,
+        default_zero: bool = True,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.gray_fontsize = gray_fontsize
+        self.stroke_width = stroke_width
         assert 2 <= num_vars <= 4, "KarnaughMap currently supports 2–4 variables."
         self.num_vars = num_vars
         self.cell_size = cell_size
+        n_cells = 2 ** num_vars
+        # ---- Build values from minterms/dont_cares if provided ----
+        if minterms is not None or dont_cares is not None:
+            mset = set(minterms or [])
+            dset = set(dont_cares or [])
 
-        # Normalize values to dict[minterm] -> value
-        if isinstance(values, dict):
-            self.values = values
+            # start with all 0 (or None, if you prefer blanks)
+            base = "0" if default_zero else ""
+            self.values = {i: base for i in range(n_cells)}
+
+            for i in mset:
+                self.values[i] = "1"
+            for i in dset:
+                self.values[i] = "X"
+
+        # ---- Otherwise, fall back to explicit values input ----
         else:
-            # Assume it's a list-like
-            self.values = {i: v for i, v in enumerate(values)}
+            if values is None:
+                values = {}
+                # raise ValueError("Provide either values=... or minterms=... (optionally dont_cares=...).")
+
+            if isinstance(values, dict):
+                self.values = values
+            else:
+                # list/tuple/etc
+                if len(values) != n_cells:
+                    raise ValueError(f"values must have length {n_cells} for num_vars={num_vars}")
+                self.values = {i: v for i, v in enumerate(values)}
 
         if var_names is None:
             self.var_names = [chr(ord("A") + i) for i in range(num_vars)]
@@ -108,7 +134,7 @@ class KarnaughMap(VGroup):
                         0,
                     ])
                 )
-                sq.set_stroke(WHITE, 1)
+                sq.set_stroke(WHITE, self.stroke_width)
                 self.cell_squares[(r, c)] = sq
                 cells_group.add(sq)
 
@@ -126,96 +152,124 @@ class KarnaughMap(VGroup):
             # If we have a value, put it in the corresponding cell
             val = self.values.get(m, None)
             if val is not None:
-                txt = Text(str(val), font_size=32)
+                txt = Text(str(val), font_size=value_fontsize)
                 txt.move_to(self.cell_squares[(r, c)].get_center())
                 self.cell_texts[(r, c)] = txt
+        print("cell text init: ", self.cell_texts)
 
         # Row Gray labels (to the LEFT of the whole grid)
-        row_label_group = VGroup()
+        self.row_gray_digits = []  # list of VGroups, one per row
+        self.row_label_group = VGroup()
 
         for r, bits in enumerate(self.row_gray):
             if bits == "":
                 continue
-            label = Text(bits, font_size=self.gray_fontsize)
-            label.next_to(cells_group, LEFT, buff=0.2)
-            row_center = self.cell_squares[(r, 0)].get_center()
-            label.set_y(row_center[1])  # row_center is (x, y) so [1] for y
-            row_label_group.add(label)
+            digits = VGroup(*[Text(ch, font_size=self.gray_fontsize)
+                              for ch in bits])
+            digits.arrange(RIGHT, buff=0.08)  # tight spacing
+            anchor = self.cell_squares[(r, 0)].get_left()
+            digits.next_to(anchor, LEFT, buff=0.2)  # or your outside-grid placement
+            self.row_label_group.add(digits)
+            self.row_gray_digits.append(digits)
 
+        print("check: ", self.row_label_group)
         # Column Gray labels
-        col_label_group = VGroup()
+        self.col_label_group = VGroup()
+        self.col_gray_digits = []
 
         for c, bits in enumerate(self.col_gray):
             if bits == "":
                 continue
-            label = Text(bits, font_size=self.gray_fontsize)
-            col_center = self.cell_squares[(0, c)].get_center()
-            label.next_to(cells_group, UP, buff=0.2)
-            label.set_x(col_center[0])  # row_center is (x, y) so [0] for x
-            col_label_group.add(label)
+            digits = VGroup(*[Text(ch, font_size=self.gray_fontsize) for ch in bits])
+            digits.arrange(RIGHT, buff=0.02)  # tight spacing
+            anchor = self.cell_squares[(0, c)].get_top()
+            digits.next_to(anchor, UP, buff=0.2)  # or your outside-grid placement
 
-        # Variable names (e.g. AB on rows, CD on cols)
-        row_var_name = (
-            "".join(self.var_names[self.n_col_vars :])
-            if self.n_row_vars > 0
-            else ""
-        )
-        col_var_name = (
-            "".join(self.var_names[: self.n_col_vars])
-            if self.n_col_vars > 0
-            else ""
-        )
+            # col_center = self.cell_squares[(0, c)].get_center()
+            # label.next_to(cells_group, UP, buff=0.2)
+            # label.set_x(col_center[0])  # row_center is (x, y) so [0] for x
+            self.col_label_group.add(digits)
+            self.col_gray_digits.append(digits)
 
-        var_label_group = VGroup()
-        if row_var_name:
-            row_name_text = Text(row_var_name, font_size=28)
-            # left of the row labels
-            if len(row_label_group) > 0:
-                row_name_text.next_to(row_label_group, LEFT, buff=0.3)
+        # make some attributes to save to use in methods to get parts easier
+        self.var_name_to_text = {}
+
+
+        # Row variable names as individual letters (e.g. "B", "C")
+        self.row_var_labels = VGroup()
+        self.row_vars = self.var_names[self.n_col_vars:]  # e.g. ["B", "C"]
+
+        for name in self.row_vars:
+            label = Text(name, font_size=28)
+            self.row_var_labels.add(label)
+            self.var_name_to_text[name] = label
+
+        if len(self.row_var_labels) > 0:
+            # Put B and C NEXT TO EACH OTHER:  B   C
+            self.row_var_labels.arrange(RIGHT, buff=0.1)
+
+            # Put the whole stack to the LEFT of the row Gray labels
+            if len(self.row_label_group) > 0:
+                self.row_var_labels.next_to(self.row_label_group, LEFT, buff=0.3)
+                self.row_var_labels.set_y(self.row_label_group.get_center()[1])
             else:
-                # fallback: left of cells
-                row_name_text.next_to(cells_group, LEFT, buff=0.6)
-            var_label_group.add(row_name_text)
+                self.row_var_labels.next_to(self.cells_group, LEFT, buff=0.6)
+                self.row_var_labels.set_y(self.cells_group.get_center()[1])
 
-        if col_var_name:
-            col_name_text = Text(col_var_name, font_size=28)
-            # above the column labels
-            if len(col_label_group) > 0:
-                col_name_text.next_to(col_label_group, UP, buff=0.3)
+        # Column variable names as individual letters
+        self.col_var_labels = VGroup()
+        self.col_vars = self.var_names[: self.n_col_vars]  # e.g. ["A"]
+
+        # Build the labels
+        for name in self.col_vars:
+            label = Text(name, font_size=28)
+            self.col_var_labels.add(label)
+            self.var_name_to_text[name] = label
+
+        for i, name in enumerate(self.col_vars):
+            if len(self.col_label_group) > 0:
+                self.col_var_labels.next_to(self.col_label_group, UP, buff=0.3)
             else:
-                col_name_text.next_to(cells_group, UP, buff=0.6)
-            var_label_group.add(col_name_text)
+                self.col_var_labels.next_to(self.cells_group, UP, buff=0.6)
+        self.add(self.row_var_labels, self.col_var_labels)
 
         # Add everything to this VGroup
         self.cells_group = cells_group
-        self.row_label_group = row_label_group
-        self.col_label_group = col_label_group
-        self.var_label_group = var_label_group
-
+        # self.var_label_group = var_label_group
+        print("ddfr: ", self.row_var_labels)
         self.add(
             cells_group,
-            row_label_group,
-            col_label_group,
+            self.row_label_group,
+            self.col_label_group,
             *self.cell_texts.values(),
-            var_label_group,
+            self.row_var_labels,
+            self.col_var_labels
         )
 
     # ------------------------------------------------------------------
-    # Animation helpers (similar flavor to your TruthTable class)
+    # Animation helpers (similar flavor to TruthTable class)
     # ------------------------------------------------------------------
 
-    def write_all(self, run_time=1.0):
+    def write(self, items = "all", run_time=1.0):
         """
         Reveal the entire map: cell grid, labels, and values.
         """
         anims = []
+        mobs = []
+        if items == "all":
+            mobs = [self.cells_group, self.row_label_group,
+            self.col_label_group, self.row_var_labels,
+            self.col_var_labels]
+        elif items == "table":
+            mobs = [self.cells_group]
+        elif items == "vars":
+            mobs = [self.row_var_labels, self.col_var_labels]
+        elif items == "labels":
+            mobs = [self.row_label_group, self.col_label_group]
+
+
         # Cells and labels
-        for mob in [
-            self.cells_group,
-            self.row_label_group,
-            self.col_label_group,
-            self.var_label_group,
-        ]:
+        for mob in mobs:
             if mob is not None and len(mob) > 0:
                 anims.append(FadeIn(mob))
         # Values
@@ -229,7 +283,38 @@ class KarnaughMap(VGroup):
         Reveal only the cell values (assuming map outline already drawn).
         """
         anims = [Write(txt) for txt in self.cell_texts.values()]
+        print("cell texts: ", self.cell_texts)
         return LaggedStart(*anims, lag_ratio=0.05, run_time=run_time)
+
+    def write_cell(self, row, col, value, run_time=0.4):
+        """
+        Ensure the cell (row,col) displays `value`.
+        If the text isn't in the scene yet -> Write it.
+        If it's already shown -> Transform it to new text.
+        """
+        key = (row, col)
+        print("cell texts: ", self.cell_texts, self.cell_texts.values())
+        old_txt = self.cell_texts[key]  # existing Tex/MathTex mobject
+
+        new_txt = Tex(str(value))
+        new_txt.match_style(old_txt)
+        new_txt.move_to(old_txt)
+
+        # If old_txt has been added to a Scene already, it will have a non-empty parents list.
+        # This is a common, practical heuristic.
+        is_on_screen = (len(old_txt.parents) > 0)
+
+        if not is_on_screen:
+            # Replace stored object so future updates target the visible one
+            self.cell_texts[key] = new_txt
+            # Also swap it into the group so later .add(self) includes the right object
+            self.replace(old_txt, new_txt)
+            return Write(new_txt, run_time=run_time)
+
+        # Already visible: transform
+        self.cell_texts[key] = new_txt
+        self.replace(old_txt, new_txt)
+        return Transform(old_txt, new_txt, run_time=run_time)
 
     # ------------------------------------------------------------------
     # Utility methods
@@ -242,7 +327,133 @@ class KarnaughMap(VGroup):
         rc = self.minterm_to_rc.get(m, None)
         if rc is None:
             return None, None
+        print("rc: ", rc, self.cell_texts.get(rc, None), self.cell_texts)
         return self.cell_squares[rc], self.cell_texts.get(rc, None)
+
+    def get_var_label(self, var: str) -> Mobject:
+        return self.var_name_to_text[var]
+
+    def get_var_digits(self, var: str, value: int) -> VGroup:
+        """
+            Return the Text objects for the bit corresponding to (var=value) in the Gray-code labels.
+
+            Example:
+                get_var_digits("B", 0) returns the '0' digit in the row labels "00" and "01"
+                (assuming rows are BC and Gray-ordered).
+            """
+        bit = str(value)
+
+        if var in self.col_vars:
+            k = self.col_vars.index(var)  # which digit inside the column Gray strings
+            hits = []
+            for c, bits in enumerate(self.col_gray):
+                if bits[k] == bit:
+                    hits.append(self.col_gray_digits[c][k])  # digit object
+            return VGroup(*hits)
+
+        if var in self.row_vars:
+            k = self.row_vars.index(var)  # which digit inside the row Gray strings
+            hits = []
+            for r, bits in enumerate(self.row_gray):
+                if bits[k] == bit:
+                    hits.append(self.row_gray_digits[r][k])
+            return VGroup(*hits)
+
+        return VGroup()
+
+    def pulse_var_digits(
+            self, var: str, value: int,
+            scale_factor: float = 1.5, color=GREEN,
+            about: str = "center",  # "center" or "bottom"
+            run_time: float = 0.25,
+    ):
+        """
+        Pulse the Gray-code digits corresponding to (var = value),
+        scaling each digit independently so they don't shift.
+
+        Returns (pulse_animation, digits_group_to_restore).
+
+        Usage:
+            pulse_anim, restore_target = kmap.pulse_var_digits_with_restore("B", 0)
+            self.play(pulse_anim)
+            self.play(Restore(restore_target))
+        """
+
+        digits = self.get_var_digits(var, value)
+
+        digits.save_state()
+
+        if digits is None or len(digits) == 0:
+            return AnimationGroup()
+
+        if about == "bottom":
+            anims = [
+                d.animate
+                .scale(scale_factor, about_point=d.get_bottom())
+                .set_color(color)
+                for d in digits
+            ]
+        else:
+            # default: anchor each digit to its own center
+            anims = [
+                d.animate
+                .scale(scale_factor, about_point=d.get_center())
+                .set_color(color)
+                for d in digits
+            ]
+
+        return AnimationGroup(*anims, lag_ratio=0.0, run_time=run_time), digits
+
+    def get_var_minterms(self, var: str, value: int) -> list[int]:
+        """
+        Return list of minterm indices where var == value.
+
+        Assumes minterm bits are ordered like self.var_names:
+            bits = f"{m:0{self.num_vars}b}" corresponds to ["A","B","C",...]
+        """
+        bit = str(value)
+        i = self.var_names.index(var)
+
+        out = []
+        for m in range(2 ** self.num_vars):
+            bits = f"{m:0{self.num_vars}b}"
+            if bits[i] == bit:
+                out.append(m)
+        return out
+
+    def get_var_cell_texts(self, var: str, value: int) -> VGroup:
+        """
+        Return a VGroup of the *cell value* Text objects for all minterms where var==value.
+        Only returns cells that actually have a Text object (i.e., were created in _build_map).
+        """
+        mins = self.get_var_minterms(var, value)
+        hits = []
+        for m in mins:
+            rc = self.minterm_to_rc.get(m, None)
+            if rc is None:
+                continue
+            txt = self.cell_texts.get(rc, None)
+            if txt is not None:
+                hits.append(txt)
+        return VGroup(*hits)
+
+    def pulse_var_cells(
+            self, var: str, value: int,
+            scale_factor: float = 1.3,
+            color=GREEN, run_time: float = 0.25):
+        """
+        Pulse the *cell numbers* (Text in cells) for all minterms where var==value.
+        Scales each cell Text independently (no shifting weirdness).
+        """
+        texts = self.get_var_cell_texts(var, value)
+        if texts is None or len(texts) == 0:
+            return AnimationGroup()
+
+        anims = [
+            t.animate.scale(scale_factor, about_point=t.get_center()).set_color(color)
+            for t in texts
+        ]
+        return AnimationGroup(*anims, lag_ratio=0.0, run_time=run_time)
 
     def highlight_group(self, minterms, color=YELLOW,
                         buff=-0.10, stroke_width=3,
@@ -321,8 +532,10 @@ class KarnaughMap(VGroup):
         )
         return box
 
+
 class KMapDemo(Scene):
     def construct(self):
+        Text.set_default(font="Menlo")
         # Example: 3-variable function f(A,B,C) with 1's at minterms 1, 3, 5, 7
         num_vars = 3
         ones = [1, 3, 5, 6, 7]
@@ -371,10 +584,14 @@ class KMapDemo(Scene):
 
         # Highlight a variable
         # === Highlight the variable A (column variable name) ===
-        A_label = kmap.var_label_group[1]  # "A" for your 3-var layout
-
+        A_label = kmap.col_var_labels  # "A" for your 3-var layout
+        A_label = kmap.get_var_label("A")
         # Option 1: change color
         self.play(A_label.animate.set_color(YELLOW), run_time=1)
+
+        A_label = kmap.get_var_label("B")
+        # Option 1: change color
+        self.play(A_label.animate.set_color(BLUE), run_time=1)
 
         # Option 2: add a small box around it
         # A_box = SurroundingRectangle(A_label, buff=0.1, color=YELLOW)
@@ -386,3 +603,60 @@ class KMapDemo(Scene):
         self.play(A_label.animate.scale(1.2), run_time=0.2)
         self.play(Restore(A_label), run_time=0.2)
         self.wait(1)
+        A_nums = kmap.col_label_group
+
+        A_nums = kmap.col_label_group  # VGroup of "0", "1" at the top
+
+        A0 = A_nums[0]
+        A1 = A_nums[1]
+
+        # highlight A=1
+        box = SurroundingRectangle(A1, buff=0.08, color=YELLOW)
+        self.play(Create(box))
+        self.play(A1.animate.set_color(YELLOW))
+
+        self.wait(1)
+
+        A1.save_state()
+        self.play(A0.animate.scale(1.25).set_color(YELLOW), run_time=0.2)
+        self.play(Restore(A1), run_time=0.2)
+
+        # rows 0 and 1 are "00" and "01" in Gray order
+        B_digit_in_00 = kmap.row_label_group[0][0]
+        B_digit_in_01 = kmap.row_label_group[1][0]
+
+        self.play(
+            B_digit_in_00.animate.set_color(YELLOW),
+            B_digit_in_01.animate.set_color(YELLOW),
+        )
+
+        # B0 = kmap.get_var_digits("B", 0)
+        # self.play(
+        #     B0.animate.scale(1.5,
+        #                      about_point=B0.get_bottom()
+        #                      ).set_color(GREEN),
+        # )
+        # self.play(
+        #     B0.animate.scale(1.0).set_color(GREEN),
+        # )
+
+        pulse_anim, restore_target = kmap.pulse_var_digits("B", 0,
+                                        scale_factor=2, color=YELLOW)
+        self.play(pulse_anim, run_time=0.5)
+        self.play(Restore(restore_target), run_time=0.2)
+
+        # Save state (so Restore works)
+        cells = kmap.get_var_cell_texts("B", 0)
+        cells.save_state()
+
+        # Pulse all cell values where B=0
+        self.play(kmap.pulse_var_cells("B", 0, scale_factor=1.4, color=YELLOW, run_time=0.2))
+
+        # Restore them
+        self.play(Restore(cells), run_time=0.2)
+
+        # change minTerm colors:
+        cells = kmap.get_var_cell_texts("B", 1)
+
+        # 1) color change (permanent)
+        self.play(cells.animate.set_color(RED), run_time=0.2)
