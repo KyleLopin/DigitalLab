@@ -702,9 +702,10 @@ class KarnaughMap(VGroup):
         outline.set_points_as_corners(pts)
 
         if buff != 0.0:
-            # simple outward scale around center as a cheap "buff"
-            outline.scale(1 + buff, about_point=outline.get_center())
+            pts = offset_rectilinear_polygon(pts, buff)
 
+        outline = VMobject()
+        outline.set_points_as_corners(pts)
         outline.set_stroke(color=color, width=stroke_width)
         outline.set_fill(opacity=0)
         return outline
