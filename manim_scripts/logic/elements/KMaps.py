@@ -25,6 +25,88 @@ def gray_code(n_bits: int):
     return ["0" + b for b in prev] + ["1" + b for b in reversed(prev)]
 
 
+def _pt_key(p, nd=5):
+    return tuple(np.round(p[:2], nd))  # 2D key
+
+
+def polygon_signed_area(pts2):
+    """Signed area; >0 means CCW."""
+    x = pts2[:, 0]
+    y = pts2[:, 1]
+    return 0.5 * np.sum(x[:-1] * y[1:] - x[1:] * y[:-1])
+
+def offset_rectilinear_polygon(pts, d):
+    """
+    Offset a CLOSED rectilinear polygon outward by distance d.
+    pts: (N,3) array, first point == last point.
+    Returns (N,3) array closed.
+    """
+    pts = np.array(pts, dtype=float)
+    if np.linalg.norm(pts[0] - pts[-1]) > 1e-6:
+        pts = np.vstack([pts, pts[0]])
+
+    p2 = pts[:, :2]
+    ccw = polygon_signed_area(p2) > 0
+
+    # For CCW polygons, outward normal is rotate(dir) by -90°.
+    # For CW polygons, outward normal is rotate(dir) by +90°.
+    def outward_normal(dir2):
+        dx, dy = dir2
+        if ccw:
+            return np.array([dy, -dx])   # -90
+        else:
+            return np.array([-dy, dx])   # +90
+
+    # Build offset lines for each edge, then intersect consecutive lines.
+    out_pts = []
+    n = len(pts) - 1  # last is duplicate
+    for i in range(n):
+        p0 = p2[i]
+        p1 = p2[i + 1]
+        dir2 = p1 - p0
+        # normalize to unit axis direction
+        if abs(dir2[0]) > abs(dir2[1]):
+            dir2 = np.array([np.sign(dir2[0]), 0.0])
+        else:
+            dir2 = np.array([0.0, np.sign(dir2[1])])
+
+        nrm = outward_normal(dir2)
+
+        # line i: through p0+p_nrm*d, direction dir2
+        # represent as (point, dir)
+        out_pts.append((p0 + nrm * d, dir2))
+
+    # Intersect consecutive offset lines
+    new_p2 = []
+    for i in range(n):
+        (a0, adir) = out_pts[i - 1]      # previous edge line
+        (b0, bdir) = out_pts[i]          # current edge line
+
+        # Lines are axis-aligned; intersection is easy.
+        # If adir is horizontal => y fixed; if vertical => x fixed.
+        if abs(adir[0]) > 0:  # a horizontal => y = a0.y
+            y = a0[1]
+            x = b0[0] if abs(bdir[1]) > 0 else b0[0]  # b vertical => x = b0.x (also fine if horizontal)
+            if abs(bdir[1]) > 0:
+                x = b0[0]
+            else:
+                # both horizontal: keep vertex x from b0
+                x = b0[0]
+        else:  # a vertical => x = a0.x
+            x = a0[0]
+            if abs(bdir[0]) > 0:
+                y = b0[1]
+            else:
+                # both vertical: keep vertex y from b0
+                y = b0[1]
+
+        new_p2.append([x, y])
+
+    new_p2.append(new_p2[0])  # close
+    new_pts = np.column_stack([np.array(new_p2), np.zeros(len(new_p2))])
+    return new_pts
+
+
 class KarnaughMap(VGroup):
     """
     A simple Karnaugh map mobject for 2–4 variables.
@@ -531,6 +613,101 @@ class KarnaughMap(VGroup):
             corner_radius=corner_radius,
         )
         return box
+
+    def outline_cells(self, minterms, color=RED, stroke_width=4, buff=0.0) -> VMobject:
+        """
+        Return an outline around the union of the selected cells.
+        Unlike SurroundingRectangle, this can make non-rectangular outlines (e.g., L-shapes).
+
+        Args:
+            minterms: iterable of minterm indices to include.
+            color: stroke color for outline.
+            stroke_width: outline thickness.
+            buff: optional outward offset (keep 0.0 to start).
+
+        Returns:
+            VMobject polyline outline.
+        """
+        # 1) Gather cell rectangles
+        rects = []
+        for m in minterms:
+            sq, _ = self.get_cell_from_minterm(m)
+            if sq is not None:
+                rects.append(sq)
+
+        if not rects:
+            return VMobject()
+
+        # 2) Build a multiset of edges; internal shared edges cancel out
+        # Each rect contributes 4 directed edges between its corners.
+        edge_counts = {}  # (a,b) undirected key -> count, plus store a->b direction later
+        directed_edges = []
+
+        for r in rects:
+            # corners in screen coordinates (Manim returns 3D points)
+            c = r.get_corner
+            p_ul = c(UL);
+            p_ur = c(UR);
+            p_dr = c(DR);
+            p_dl = c(DL)
+
+            corners = [p_ul, p_ur, p_dr, p_dl]
+            segs = [(corners[i], corners[(i + 1) % 4]) for i in range(4)]
+
+            for a, b in segs:
+                ak, bk = _pt_key(a), _pt_key(b)
+                und = tuple(sorted([ak, bk]))
+                edge_counts[und] = edge_counts.get(und, 0) + 1
+                directed_edges.append((ak, bk))
+
+        # Keep only boundary edges (appear once)
+        boundary = [(a, b) for (a, b) in directed_edges
+                    if edge_counts[tuple(sorted([a, b]))] == 1]
+
+        if not boundary:
+            return VMobject()
+
+        # 3) Stitch boundary edges into a continuous loop
+        # Build adjacency from start->end
+        next_map = {}
+        for a, b in boundary:
+            next_map.setdefault(a, []).append(b)
+
+        # Pick a starting point (leftmost, then highest)
+        start = sorted(next_map.keys(), key=lambda k: (k[0], -k[1]))[0]
+
+        path = [start]
+        cur = start
+        prev = None
+
+        # Follow edges until we return to start
+        for _ in range(10000):
+            options = next_map.get(cur, [])
+            if not options:
+                break
+            # Choose next; if two options, avoid going back to prev
+            if prev is not None and len(options) > 1:
+                nxt = options[0] if options[0] != prev else options[1]
+            else:
+                nxt = options[0]
+            path.append(nxt)
+            prev, cur = cur, nxt
+            if cur == start:
+                break
+
+        # Convert keys back to 3D points
+        pts = [np.array([x, y, 0.0]) for (x, y) in path]
+
+        outline = VMobject()
+        outline.set_points_as_corners(pts)
+
+        if buff != 0.0:
+            # simple outward scale around center as a cheap "buff"
+            outline.scale(1 + buff, about_point=outline.get_center())
+
+        outline.set_stroke(color=color, width=stroke_width)
+        outline.set_fill(opacity=0)
+        return outline
 
 
 class KMapDemo(Scene):
