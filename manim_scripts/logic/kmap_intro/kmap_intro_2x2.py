@@ -32,6 +32,9 @@ from gates.gates import *
 # during video, it is stored in IntermissionSlides
 from helpers.base import IntermissionSlides, KMapBase  # is a Scene with watermark
 from helpers.timing_helpers import TimingHelpers
+from helpers.styles import KMAP_STYLE as S
+# get start elements
+from kmap_intros import build_handoff
 
 numbers_font = "Menlo"
 # text_font = "Felix Titling"
@@ -110,11 +113,7 @@ def circuit_two_ands_into_or(
     return circuit
 
 
-TIMES = {"start": 0,  # to build the cue slides so i can pass ._cue to exclude on Intermissin slides
-         "intro_subheader2": 3,
-         "end_intro": 6,
-         "example 1": 8,
-         "tt_intro": 10,
+TIMES = {"tt_intro": 10,
          # "tt_end": 25,
          "KMap1_start": 15,
          "kmap_vars": 20,
@@ -164,13 +163,18 @@ TIMES = {"start": 0,  # to build the cue slides so i can pass ._cue to exclude o
 
          "pulse B 0": 200,
          "pulse A 01": 204,
-         "explain prime implicants 2": 198,
-         "explain implicant expansion": 202,
-         "explain prime implicant 2-2": 206,
-         "add back implicant A": 210,
-         "add full eqn": 215,
-         "highlight OR point": 218,
-         "add full circuit": 220,
+
+         "intro l-shape": 206,
+         "explain l-shape": 206,
+         "end l-shape": 208,
+
+         "explain prime implicants 2": 210,
+         "explain implicant expansion": 212,
+         "explain prime implicant 2-2": 216,
+         "add back implicant A": 220,
+         "add full eqn": 225,
+         "highlight OR point": 228,
+         "add full circuit": 230,
          }
 
 TEXT_SCALE = 32
@@ -185,213 +189,14 @@ KMAP_POINTS = [  # used for IntermissionsSlide
     "Rule 5)|A single 1 can be grouped into multiple implicants",
 ]
 
-
-# class IntermissionSlides:
-#     """
-#     Reusable intermission “points slide” controller.
-#
-#     Call `.show(scene, content)` repeatedly; each call reveals one additional bullet.
-#     The helper stores its internal slide and counter.
-#     The slide it shows is built in _build_slide()
-#     """
-#     title: str
-#     bullets: list[str]
-#
-#     # Objects that should NOT be faded out (e.g., watermark, cue label)
-#     exclude: list[Mobject] = field(default_factory=list)
-#
-#     # Styling knobs (override if you want)
-#     title_size: int = 46
-#     text_size: int = 34
-#     width: float = 11.0
-#     slide_buff: float = 0.45
-#     bullet_buff: float = 0.25
-#
-#     TITLE_FONT = "Avenir Next"
-#     TEXT_FONT = "Avenir Next"
-#
-#     # Internal state
-#     # _slide is the slide this Class shows
-#     _slide: VGroup | None = field(default=None, init=False, repr=False)
-#     # _i keeps track of which bullet points are shown
-#     _i: int = field(default=0, init=False, repr=False)
-#
-#     def _build_slide(self) -> VGroup:
-#         """Create the slide and hide all bullets initially."""
-#         print(f"Building slide {self.title}")
-#         t = Text(self.title, font_size=self.title_size, weight=BOLD,
-#                  font=self.TITLE_FONT)
-#         # self.items = VGroup(*[Text(p, font_size=self.text_size, weight=BOLD,
-#         #                       font=self.TEXT_FONT) for p in self.bullets])
-#         self.items = VGroup(*[
-#             self.make_hanging_item(p, font=self.TEXT_FONT,
-#                                    label_size=int(self.text_size*0.95),
-#                                    body_size=self.text_size,
-#                                    ) for p in self.bullets
-#                               ])
-#
-#         # IMPORTANT: arrange them so they don't overlap
-#         self.items.arrange(DOWN, aligned_edge=LEFT, buff=self.bullet_buff)
-#
-#         # Align all bodies to the same left x (hanging indent)
-#         bodies = VGroup(*[
-#             it[1] for it in self.items
-#             if isinstance(it, VGroup) and len(it) >= 2
-#         ])
-#         if len(bodies) > 0:
-#             target_left_x = bodies[0].get_left()[0]
-#             for b in bodies:
-#                 b.shift(RIGHT * (target_left_x - b.get_left()[0]))
-#
-#         _slide = VGroup(t, self.items
-#                         ).arrange(DOWN, buff=self.slide_buff, aligned_edge=LEFT
-#                                   ).move_to(ORIGIN)
-#         _slide.set_width(self.width)
-#         # hide all bullets initially
-#         for item in self.items:
-#             item.set_opacity(0)
-#
-#         # Make an all black slide to hide the orignal slide to project new intermission slide on
-#         self.cover = Rectangle(width=config.frame_width,
-#                           height=0.8 * config.frame_height
-#                           ).set_fill(BLACK, 1).set_stroke(
-#             width=0).set_z_index(1000)
-#
-#         return _slide
-#
-#     def reset(self) -> None:
-#         """Reset bullet reveal progression back to the start."""
-#         self._i = 0
-#         if self._slide is not None:
-#             bl: BulletedList = self._slide[1]
-#             for item in bl:
-#                 item.set_opacity(0)
-#
-#     def split_label_body(self, s: str, sep: str = "|") -> tuple[str | None, str]:
-#         """Split 'LABEL|BODY'. If no sep, returns (None, s)."""
-#         if sep in s:
-#             left, right = s.split(sep, 1)
-#             return left.strip(), right.strip()
-#         return None, s
-#
-#     def make_hanging_item(self, s: str,
-#             *,
-#             sep: str = "|",
-#             font: str = "Avenir Next",
-#             label_size: int = 36,
-#             body_size: int = 36,
-#             label_buff: float = 0.25,
-#             line_spacing: float = 0.9,
-#     ) -> VGroup | Text:
-#         label_txt, body_txt = self.split_label_body(s, sep=sep)
-#
-#         body = Text(body_txt, font=font, font_size=body_size, line_spacing=line_spacing)
-#
-#         if label_txt is None:
-#             return body
-#
-#         label = Text(label_txt, font=font, font_size=label_size, weight="BOLD")
-#
-#         item = VGroup(label, body).arrange(RIGHT, buff=label_buff, aligned_edge=UP)
-#         return item
-#
-#     def highlight(self, scene, idx,
-#                   dim_opacity=0.25, hi_opacity=1.0,
-#                   hi_color=YELLOW,
-#                   fade_rt: float = 0.6,
-#                   reveal_rt: float = 0.4,
-#                   wait_to: str = "",
-#                   ):
-#         """Return animations to highlight bullet `idx` WITHOUT touching self.i."""
-#         anims = []
-#         for j, m in enumerate(self.items):
-#             if j == idx:
-#                 anims += [
-#                     m.animate.set_opacity(hi_opacity).set_color(hi_color),
-#                     Indicate(m, scale_factor=1.06),
-#                 ]
-#             else:
-#                 anims.append(m.animate.set_opacity(dim_opacity).set_color(WHITE))
-#         # return anims
-#         if self._slide is None:
-#             raise AttributeError("self._slide not initiated yet, call .show() first")
-#         self._slide.set_z_index(1001)
-#         # add black cover to hide current objects
-#         scene.play(FadeIn(self.cover), run_time=fade_rt)
-#         # then show the intermission slide
-#         # scene.play(FadeIn(self._slide), run_time=reveal_rt)
-#         scene.play(*anims, run_time=1)
-#         if wait_to:
-#             try:
-#                 scene.wait_to(TIMES["highlight OR point"], self._i-1)  # self._i already incremented
-#             except Exception as e:
-#                 print(f"wait_to should be in TIMES dict got: {e}")
-#
-#         # remove _slide and FadeOut the cover which is same as FadeIn old scene
-#         scene.play(FadeOut(self._slide), run_time=fade_rt)
-#         scene.play(FadeOut(self.cover), run_time=reveal_rt)
-#
-#
-#     def show(
-#         self,
-#         scene: Scene,
-#         *,
-#         fade_rt: float = 0.6,
-#         hold: float = 1.8,
-#         reveal_rt: float = 0.4,
-#         dim: float = 0.15,
-#         use_dim: bool = False,
-#         wait_to: str = "",
-#     ) -> None:
-#         """
-#         Fade out everything currently on-screen EXCEPT `exclude`,
-#         show the slide, reveal the next bullet, fade the slide out,
-#         then bring everything back.
-#
-#         Call repeatedly to reveal bullets one-by-one.
-#         """
-#         if self._slide is None:
-#             self._slide = self._build_slide()
-#
-#         bullets: BulletedList = self._slide[1]
-#
-#         # Snapshot everything currently on screen, excluding chosen objects + the slide itself (if present)
-#         exclude_set = set(self.exclude)
-#         exclude_set.add(self._slide)
-#
-#         # If there are bullets, reveal next (clamped so extra calls keep all visible)
-#         if len(bullets) > 0:
-#             idx = min(self._i, len(bullets) - 1)
-#         else:
-#             idx = None
-#
-#         self._slide.set_z_index(1001)
-#         # add black cover to hide current objects
-#         scene.play(FadeIn(self.cover), run_time=fade_rt)
-#         # then show the intermission slide
-#         scene.play(FadeIn(self._slide), run_time=reveal_rt)
-#
-#         # reveal next bullet
-#         if idx is not None:
-#             bullets[idx].set_opacity(1)
-#             scene.play(Write(bullets[idx]), run_time=reveal_rt)
-#             self._i = min(self._i + 1, len(bullets))
-#
-#         if wait_to:
-#             try:
-#                 scene.wait_to(wait_to, self._i-1)  # self._i already incremented
-#             except Exception as e:
-#                 print(f"wait_to should be a list, got error: {e}")
-#
-#         # remove _slide and FadeOut the cover which is same as FadeIn old scene
-#         scene.play(FadeOut(self._slide), run_time=fade_rt)
-#         scene.play(FadeOut(self.cover), run_time=reveal_rt)
+PRODUCTION = True
 
 
 class KMap2VarInstruct(KMapBase, TimingHelpers):
     def construct(self):
         # region setup
-        # self.next_section(skip_animations=True)
+        if not PRODUCTION:
+            self.next_section(skip_animations=True)
         wm = self.add_watermark()
         self.setup()
         Text.set_default(font="Menlo")  # for KMaps to work properly
@@ -406,34 +211,14 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         # endregion setup
 
         # region Intro
-        # Title header
-        header = Text("Introduction to Karnaugh Maps", font_size=header1_size,
-                      weight=BOLD, font=text_font)
-
-        bullet = "• "
-        # make 2 lines justified
-        line1 = Text(bullet + "Build Karnaugh maps from truth tables", font_size=28, font=text_font)
-        line2 = Text(bullet + "Get the implicants and their terms", font_size=28, font=text_font)
-        line3 = Text(bullet + "Write the Boolean equation ", font_size=28, font=text_font)
-        line4 = Text(bullet + "Draw the logic circuit ", font_size=28, font=text_font)
-
-        subheader = VGroup(line1, line2, line3, line4
-                           ).arrange(DOWN, aligned_edge=LEFT, buff=0.1)
-        subheader.next_to(header, DOWN, buff=0.20).align_to(header, LEFT).shift(RIGHT * 0.6)
-        # put this in 1 block to get the spacing correct
-        title_block = VGroup(header, subheader).arrange(DOWN, buff=0.75)
-        self.play(Write(header), run_time=1)
-        self.play(Write(subheader), run_time=TIMES["intro_subheader2"])
-        self.wait_to("end_intro")
-        self.play(FadeOut(subheader))
+        parts_label, example_label = build_handoff(2, 1)
+        self.add(parts_label, example_label)
 
         # region Part 1 intro
 
         # endregion Part 1 intro
         # endregion Intro
 
-        # endregion Intro
-        # return
         # region truth table
         truth_table = TruthTable(inputs=["A", "B"],
             outputs=["x"], minterms=[2], scale=3)
@@ -669,7 +454,8 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         self.play(Write(ab_circuit),
                   truth_table.animate.scale(0.75).to_corner(UR, buff=0.6),
                   run_time=2)
-        # self.wait_to("intermissions", 0)
+
+
         # region show slide pt1
         intermission.show(self, wait_to="intermission ends")  # index: 0
         # endregion show slide pt1
@@ -680,8 +466,9 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
                           explain_implicant3), run_time=1)
         # endregion implicants 1
 
+        # region implicant 2
+        # region add minterm
         self.wait_to("add minTerm3")
-
         # change the maxTerm3 to minTerm3 on the KMap and truth table
         tt_cell_min3 = truth_table.get_cell(row=3, col=2)
         anims = []
@@ -690,8 +477,15 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
             new_txt = Text("1", font=numbers_font, font_size=txt.font_size)
             new_txt.move_to(txt).match_style(txt)
             anims.append(Transform(txt, new_txt))
+        example_label2 = Text(f"Example 2", font_size=26, font=S.text_font
+                              ).move_to(example_label)
+        anims.append(Transform(example_label, example_label2))
         self.play(*anims)
+        # endregion add minterm
+        # region add implicant 2
         self.wait_to("add implicant 2")
+        # also change example number
+
         implicant2 = kmap_2x2_1.highlight_group([3], color=RED,
                                                 stroke_width=8, buff=-.2)
         self.play(Create(implicant2), run_time=2)
@@ -706,11 +500,11 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
             Write(implicant2_label),
             Create(connector), run_time=1.2
         )
-
         self.wait_to("fade out implicant 2")
         self.play(FadeOut(implicant2_label, connector))
+        # endregion add implicant 2
+        # explain implicant 2
         # pulse both implicants and show circuit
-
         self.play(
             implicant1.animate.scale(PULSE_SCALE),
             implicant2.animate.scale(PULSE_SCALE),
@@ -728,7 +522,7 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
             substrings_to_isolate=[r"A\overline{B}", r"AB"],
             font_size=EQ_FONTSIZE,
         )
-        eq.to_edge(UP, buff=0.6).shift(1.0*RIGHT)
+        eq.to_edge(UP, buff=1.2).shift(1.0*RIGHT)
 
         term1 = eq.get_part_by_tex(r"A\overline{B}")
         term2 = eq.get_part_by_tex(r"AB")
@@ -744,6 +538,10 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         self.wait_to("show non prime eqn")
         self.play(Write(eq), run_time=1.2)
         self.play(Create(conn_anotb), Create(conn_ab), run_time=0.6)
+        non_prime_txt = Text("Not optimal solution", font_size=38,
+                             color=YELLOW_B)
+        non_prime_txt.next_to(eq, UP, buff=0.3)
+        self.play(Write(non_prime_txt), run_time=1.2)
         self.wait_to("show non prime circuit")
 
         truth_table.save_state()
@@ -757,6 +555,7 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
                   # truth_table.animate.scale(0.75).to_corner(UR, buff=0.6),
                   run_time=2)
         intermission.show(self, wait_to="intermission ends")  # index: 1
+        # add the implicants can be any size but prime impicants can not be expanded
 
         # MOVED: do implicant expansion first
         prime_implicant1 = kmap_2x2_1.highlight_group([2, 3], color=RED,
@@ -765,11 +564,12 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         self.play(
             ReplacementTransform(implicant1.copy(), prime_implicant1),
             FadeOut(implicant2, implicant1),
-            FadeOut(ckt, conn_anotb, conn_ab),
+            FadeOut(ckt, conn_anotb, conn_ab, non_prime_txt),
             run_time=1.4
         )
+        self.play(eq.animate.shift(0.8 * UP))
         prime_implicant1_label = (Tex(r"\text{Prime Implicant}", font_size=EQ_FONTSIZE, color=RED)
-                                  .next_to(prime_implicant1, RIGHT, buff=0.35))
+                                  .next_to(prime_implicant1, RIGHT, buff=0.35).shift(0.6*DOWN))
         self.play(Write(prime_implicant1_label))
 
         self.wait_to("simplify 1", 0)
@@ -834,26 +634,34 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
 
         # remove all the prime implicant 1 stuff
         self.play(FadeOut(prime_implicant1_label, eq, eq1, eq2, eq3), run_time=1)
+        # endregion implicant 2
+        # if not PRODUCTION:
+        #     self.next_section(skip_animations=True)
+        # region implcant 3
         # convert M0 to m0
         # change the maxTerm3 to minTerm3 on the KMap and truth table
         tt_cell_min0 = truth_table.get_cell(row=0, col=2)
         anims = []
 
-        # self.next_section("Running")
-
         for txt in [tt_cell_min0, kmap_values[0]]:
             new_txt = Text("1", font=numbers_font, font_size=txt.font_size)
             new_txt.move_to(txt).match_style(txt)
             anims.append(Transform(txt, new_txt))
-        self.play(*anims)
+        example_label3 = Text(f"Example 3", font_size=26, font=S.text_font
+                              ).move_to(example_label2)
+
+        self.play(*anims,
+                  Transform(example_label, example_label3),
+                  run_time=1.5)
         self.wait_to("add implicant m0")
+
         implicant3 = kmap_2x2_1.highlight_group([0], color=ORANGE,
                                                 stroke_width=8, buff=-.2)
         self.play(Create(implicant3), run_time=2)
 
         implicant3_label = MathTex(r"Implicant: \overline{A}\,\overline{B}",
                                    font_size=54, color=ORANGE)
-        implicant3_label.next_to(implicant3, UP, buff=2.0).shift(1.7 * LEFT)
+        implicant3_label.next_to(implicant3, UP, buff=1.1).shift(1.9 * LEFT)
 
         connector = Line(
             implicant3_label.get_bottom(),
@@ -865,7 +673,9 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
             Create(connector),
             run_time=1.2
         )
+
         self.wait_to("add implicant a'b'")
+
         # make scene to explain implicant a'b' to b'
         prime_implicant2 = kmap_2x2_1.highlight_group([0, 2], color=ORANGE,
                                                       stroke_width=8, buff=-.2)
@@ -877,6 +687,36 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         # bring back later when explaining implicant expansion
         implicant3.save_state()
         implicant3_label.save_state()
+
+        # region explain implicant shapes
+        # Can not make L shape
+        l_group = kmap_2x2_1.outline_cells([0, 2, 3], color=MAROON_C,
+                                           stroke_width=8, buff=-.2)
+        # self.play(Write(l_group), run_time=1)
+        prime_implicant1.save_state()
+        self.wait_to("intro l-shape")
+        self.play(Transform(prime_implicant1, l_group), run_time=2)
+        self.wait_to("explain l-shape")
+
+        l_shape_label1 = Text("Invalid implicant shape",
+                              font_size=32, color=MAROON_C)
+        l_shape_label2 = Text("No Boolean AND Term",
+                              font_size=32, color=MAROON_C)
+        l_shape_label1.next_to(prime_implicant1, UP, buff=1.9).shift(3.0 * RIGHT)
+        l_shape_label2.next_to(l_shape_label1, DOWN, buff=.1)
+        conn_l = Line(l_group.get_corner(UR), l_shape_label2.get_bottom(),
+                      stroke_width=8, color=MAROON_C, buff=0.1,)
+        self.play(Write(l_shape_label1),
+                  Write(l_shape_label2),
+                  Write(conn_l), run_time=1)
+        self.wait_to("end l-shape")
+
+        self.play(Restore(prime_implicant1),
+                  FadeOut(l_shape_label1, l_shape_label2, conn_l),)
+        # Can not expand implicant to 2x2
+
+
+        # endregion explain implicant shapes
 
         self.play(Transform(implicant3, prime_implicant2),
                   # FadeOut(implicant3_label, connector),
@@ -969,6 +809,130 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         self.play(Create(ckt), run_time=1)
 
         self.wait(2)
+        # endregion implcant 3
+
+
+class KMap2VarConclusion(KMapBase, TimingHelpers):
+    # --- TUNING KNOBS ---
+    TITLE_FONT = "Avenir Next"
+    BODY_FONT = "Palatino"
+
+    TITLE_SIZE = 50
+    LABEL_SIZE = 38  # "1)" / "2)" / "3)"
+    BODY_SIZE = 36  # main text
+    WM_SIZE = 24
+
+    ITEM_BUFF = 0.45  # vertical spacing between points
+    TITLE_BUFF = 0.60  # spacing between title and list
+    SLIDE_BUFF = 0.8  # spacing to top of screen
+    WIDTH_FRAC = 0.92  # fraction of frame width for slide
+
+    COVER_FRAC = 0.90  # top % of screen to black out
+    LINE_SPACING = 0.9
+    times = {"write time": 3,
+             "fade out": 2}
+
+    @staticmethod
+    def make_hanging_item(
+            s: str,
+            *,
+            sep: str = "|",
+            font: str = "Avenir Next",
+            label_size: int = 36,
+            body_size: int = 36,
+            label_buff: float = 0.25,
+            line_spacing: float = 0.9,
+    ) -> Mobject:
+        """Build a single 'LABEL|BODY' item with hanging indent for BODY newlines."""
+        if sep in s:
+            label_txt, body_txt = s.split(sep, 1)
+            label_txt = label_txt.strip()
+            body_txt = body_txt.strip()
+
+            label = Text(label_txt, font=font, font_size=label_size, weight="BOLD")
+            body = Text(body_txt, font=font, font_size=body_size, line_spacing=line_spacing)
+
+            item = VGroup(label, body).arrange(RIGHT, buff=label_buff, aligned_edge=UP)
+            return item
+
+        return Text(s, font=font, font_size=body_size, line_spacing=line_spacing)
+
+    def construct(self):
+        wm = self.add_watermark()
+
+        # --- Slide content (your 3 teaching points) ---
+        TITLE_FONT = "Avenir Next"
+        TEXT_FONT = "Palatino"  # try "Palatino", "Georgia", "Hoefler Text", etc.
+
+        bullet = "• "
+        points = [
+            f"{bullet}|Implicants are rectangular groups of 1’s.\n"
+            "Groups must be sizes of 2ⁿ (powers of two), e.g. 1×1, 1×2, 2×1, 2×2, 2x4, etc.",
+            f"{bullet}|Prime implicants are the largest valid groups.\n"
+            "Larger groups eliminate more variables → simpler equations and smaller circuits",
+            f"{bullet}|Each group becomes an AND term.\n"
+            "The final function is the OR of all required implicants (Sum-of-Products, SOP)",
+        ]
+
+        title = Text("Key points for Karnaugh Maps (Part 1)", font=TITLE_FONT,
+                     font_size=self.TITLE_SIZE, weight="BOLD")
+
+        items = VGroup(*[
+            self.make_hanging_item(
+                p,
+                sep="|",
+                font=TEXT_FONT,
+                label_size=self.LABEL_SIZE,
+                body_size=self.BODY_SIZE,
+            )
+            for p in points
+        ]).arrange(DOWN, aligned_edge=LEFT, buff=self.ITEM_BUFF)
+
+        # Hanging indent alignment: align all bodies to the same left x
+        bodies = VGroup(*[
+            it[1] for it in items
+            if isinstance(it, VGroup) and len(it) >= 2
+        ])
+        if len(bodies) > 0:
+            target_left_x = bodies[0].get_left()[0]
+            for b in bodies:
+                b.shift(RIGHT * (target_left_x - b.get_left()[0]))
+
+        slide = VGroup(title, items).arrange(DOWN, buff=0.6, aligned_edge=LEFT)
+        slide.set_width(config.frame_width * self.WIDTH_FRAC)
+        slide.to_edge(UP, buff=self.SLIDE_BUFF)
+        slide.set_z_index(1001)
+
+        # Hide all bullet items initially (title stays)
+        for it in items:
+            it.set_opacity(0)
+
+        # --- Cover only top 90% so watermark area stays visible ---
+        cover = Rectangle(
+            width=config.frame_width,
+            height=0.90 * config.frame_height,
+        ).set_fill(BLACK, 1).set_stroke(width=0)
+        cover.to_edge(UP, buff=0)
+        cover.set_z_index(1000)
+
+        # Keep watermark above the cover (optional). If you prefer it under, remove these 2 lines.
+        wm.set_z_index(1100)
+
+        # --- Animate ---
+        self.add(cover, slide)
+
+        self.play(FadeIn(title), run_time=self.times["write time"])
+
+        for it in items:
+            it.set_opacity(1)
+            self.play(Write(it), run_time=self.times["write time"])
+            self.wait(0.4)
+
+        self.wait(1.5)
+        return
+        self.play(FadeOut(slide), run_time=self.times["fade out"])
+        self.remove(cover, slide)
+        self.wait(0.5)
 
 
 class GatePreview(Scene):
