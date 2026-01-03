@@ -28,16 +28,33 @@ TIME = SimpleNamespace(
     move_to_binary=5,
     binary_steps=2,
 
-    circumscribe_multiplier=1,
+
     right_shift=1,
-    algo_wait=3,
-    algo_arrow_between=2,
+
+    algo_arrow_between=8,
     lsb_box=2,
     accum_move=2,
     lsb_0_wait=3,
-    algo_indicates=2,
+
     wait_compare=3,
     end_indicate=2,
+    start_bin_2=40,
+    bin2_value_wait=8,
+    pp_bin_2_write=10,
+    bin2_pause_fadeout_long=8,
+    circumscribe_multiplier=3,
+    bin2_explain_shift=26,
+    bin2_explain_lsb=[4, 1, 1, 1],
+    right_shift_2=3,
+    bin2_restore_multiplier=6,
+    show_acc = 28,
+    algo_indicates1=[3, 3, 3, 3],
+    algo_indicates2=[3, 3, 3, 3],
+    algo_lines=[8, 5, 5],
+    algo_wait=17,
+    algo_steps=[9, 0.1, 0.1, 0.1],
+    algo_pp_wait=[0.1, 5, 0.1, 0.1],
+    start_algo=14,
 )
 SCALE = 0.9
 BIN_SCALE = 0.7
@@ -419,12 +436,15 @@ class Multiplication(Scene):
         # region binary 2
         # remove all decimal stuff
         self.sec("binary_2")
+
         new_title = Text("Binary Multiplication", color=WHITE).scale(0.6)
         new_title.to_edge(UP, buff=0.75).align_to([right_col_x, 0, 0], RIGHT)
 
+        # self.wait(40)
+        self.wait(TIME.start_bin_2)
         self.play(FadeOut(multiplicand), FadeOut(multiplier), FadeOut(hline),
                   FadeOut(partial1), FadeOut(partial2), FadeOut(partial3),
-                  FadeOut(result), FadeOut(plus_sign), FadeOut(sum_line),
+                  FadeOut(result), FadeOut(plus_sign), FadeOut(sum_line), FadeOut(bin_dec_res),
                   ReplacementTransform(title, new_title))
 
         multiplicand = Text(f"{SMALL_NUM_1:b}", font="Menlo", color=dark).scale(scale)
@@ -446,6 +466,7 @@ class Multiplication(Scene):
         dec2.next_to(multiplier, RIGHT, buff=0.35).align_to(multiplier, DOWN)
 
         self.play(FadeIn(dec1), FadeIn(dec2))
+        self.wait(TIME.bin2_value_wait)
 
         # --- Build binary partial products (multiplicand = SMALL_NUM_1, multiplier = SMALL_NUM_2)
         bin_partials_short = []
@@ -478,7 +499,7 @@ class Multiplication(Scene):
             else:
                 row.next_to(hline, DOWN, buff=0.18).align_to(multiplier, RIGHT)
 
-            self.play(Write(row), run_time=0.5)
+            self.play(Write(row), run_time=TIME.pp_bin_2_write)
             bin_partials_short.append(row)
 
         # CARRY ROW
@@ -543,7 +564,7 @@ class Multiplication(Scene):
 
         # region binary with shift
         self.sec("binary_shift")
-
+        self.wait(TIME.bin2_pause_fadeout_long)
         # region binary with shift setup
         # fade out all the orginial binary stuff
         self.play(FadeOut(VGroup(*long_bin_stuff)), FadeOut(title))
@@ -579,31 +600,31 @@ class Multiplication(Scene):
             self.play(Indicate(multiplier[i]),
                       Circumscribe(multiplier[i], color=ORANGE),
                                color=YELLOW, run_time=TIME.circumscribe_multiplier)
-
+        self.wait(TIME.bin2_explain_shift)
         self.play(FadeOut(dec1), FadeOut(dec2))
 
-        shift_arrows = Text(">>", font="Menlo", color=YELLOW).scale(scale)
-        shift_arrows.next_to(multiplier, RIGHT, buff=0.35)
+        shift_arrows_right = Text(">>", font="Menlo", color=YELLOW).scale(scale)
+        shift_arrows_right.next_to(multiplier, RIGHT, buff=0.35)
         shift_arrows_left = Text("<<", font="Menlo", color=YELLOW).scale(scale)
         shift_arrows_left.next_to(multiplicand, RIGHT, buff=0.35)
         shift_lbl = Text("right shift", font="Menlo", color=YELLOW).scale(0.7*scale)
-        shift_lbl.next_to(shift_arrows, DOWN, buff=0.35)
+        shift_lbl.next_to(shift_arrows_right, DOWN, buff=0.35)
 
-        # self.play(FadeIn(shift_arrows), run_time=0.5)
-        self.play(Succession(
-            Indicate(shift_arrows, color=YELLOW, scale_factor=1.35, run_time=0.35),
-            Indicate(shift_arrows, color=YELLOW, scale_factor=1.35, run_time=0.35),
-        ),
-        FadeIn(shift_lbl))
-
-        self.wait(TIME.right_shift)
-        # endregion introduce shift
-
-        # region implement shift
         # put a box around the LSB (rightmost bit)
         lsb_box = SurroundingRectangle(multiplier[-1], corner_radius=0.12, buff=0.06) \
             .set_stroke(YELLOW_C, 4).set_fill(opacity=0)
         self.play(Create(lsb_box))
+        self.wait(TIME.bin2_explain_lsb[i])
+        self.play(Succession(
+            Indicate(shift_arrows_right, color=YELLOW, scale_factor=1.35, run_time=0.35),
+            Indicate(shift_arrows_right, color=YELLOW, scale_factor=1.35, run_time=0.35),
+        ))
+        self.play(FadeIn(shift_lbl), run_time=0.5)
+        self.wait(TIME.right_shift)
+        # endregion introduce shift
+
+        # region implement shift
+
         # char_w = Text("0", font="Menlo", color=WHITE).scale(scale).width  # measure once
         print("LL: ", char_w, multiplier[0].width)
         multiplier.save_state()
@@ -618,10 +639,11 @@ class Multiplication(Scene):
             #           aligned_edge=RIGHT),
             #           multiplier[-i].animate.set_opacity(0), run_time=2)
             self.play(multiplier.animate.shift(RIGHT * col_step),
-                      multiplier[-i].animate.set_opacity(0), run_time=2)
+                      multiplier[-i].animate.set_opacity(0), run_time=TIME.right_shift_2)
         self.play(multiplier.animate.set_opacity(0), run_time=2)
+        self.wait(TIME.bin2_restore_multiplier)
         self.play(Restore(multiplier))
-        self.play(FadeOut(shift_lbl), FadeOut(shift_arrows))
+        self.play(FadeOut(shift_lbl), FadeOut(shift_arrows_right))
         # endregion implement shift
 
         # region setup accumulator
@@ -641,14 +663,15 @@ class Multiplication(Scene):
         acc_label.next_to(acc_box, DOWN, buff=0.2)
 
         # show them
-        self.play(Create(acc_box), FadeIn(acc_val), FadeIn(acc_label))
+        self.play(Create(acc_box), FadeIn(acc_val),
+                  FadeIn(acc_label), run_time=TIME.show_acc)
 
         # endregion setup accumulator
         # region run algo setup
 
         # region algo run
         algo_lines = [
-            MarkupText("1) If LSB is <span foreground=\"yellow\">1</span>\n<b>add</b> "
+            MarkupText("1) If LSB of multiplier is <span foreground=\"yellow\">1</span>\n<b>add</b> "
                        "<i>multiplicand</i> to <b>accumulator</b>.", color=GREEN, font="Menlo").scale(0.5),
             # MarkupText("      <b>add</b> <i>multiplicand</i> to <b>accumulator</b>.", color=GREEN, font="Menlo").scale(0.5),
             MarkupText("2) Shift <i>multiplier</i> <b>right</b>", color=WHITE, font="Menlo").scale(0.5),
@@ -662,7 +685,7 @@ class Multiplication(Scene):
             # new_markup.next_to(acc_label, DOWN, buff=0.2)
             new_markup.move_to(algo_lines[0], aligned_edge=LEFT)
             self.play(TransformMatchingShapes(algo_lines[0], new_markup), run_time=0.4)
-            self.play(Indicate(new_markup, scale_factor=1.10), run_time=TIME.algo_indicates)
+            self.play(Indicate(new_markup, scale_factor=1.10), run_time=TIME.algo_indicates1[i])
             algo_lines[0] = new_markup
 
         def set_algo_text_for_lsb_1():
@@ -670,7 +693,7 @@ class Multiplication(Scene):
                                     color=YELLOW, font="Menlo").scale(0.5)
             new_markup.move_to(algo_lines[0], aligned_edge=LEFT)
             self.play(TransformMatchingShapes(algo_lines[0], new_markup), run_time=0.4)
-            self.play(Indicate(new_markup, scale_factor=1.10), run_time=TIME.algo_indicates)
+            self.play(Indicate(new_markup, scale_factor=1.10), run_time=TIME.algo_indicates2[i])
             algo_lines[0] = new_markup
 
         for i, line in enumerate(algo_lines):
@@ -679,7 +702,7 @@ class Multiplication(Scene):
             else:
                 line.next_to(algo_lines[i-1], DOWN, buff=0.2)
                 line.align_to(algo_lines[i-1], LEFT)
-            self.play(Write(line))
+            self.play(Write(line), run_time=TIME.algo_lines[i])
 
         # endregion run algo setup
         self.wait(TIME.algo_wait)
@@ -692,7 +715,7 @@ class Multiplication(Scene):
 
         # pulse_n(lsb_box, n=5, scale_factor=1.5, width_pulse=4)
         # self.sec("working")
-        # animate adding multiplicand
+        # axfnimate adding multiplicand
         for i in range(4):
             print("i = ", i, "multiplier_text:", multiplier.text[-(i+1)])
             if multiplier.text[-(i+1)] == "1":
@@ -730,7 +753,7 @@ class Multiplication(Scene):
                     arrow.set_stroke(width=6)  # ← thicker line
                     self.play(Create(arrow), run_time=TIME.algo_arrow_between)
                     return arrow
-
+                self.wait(TIME.algo_pp_wait[i])
                 arrow = make_arrow(color_cycle[i])
                 # Now change accumulator number
                 acc_num += multiplicand_value
@@ -744,6 +767,7 @@ class Multiplication(Scene):
                           FadeOut(arrow),
                           FadeOut(row), run_time=1)
                 acc_val = new_acc
+                self.wait(TIME.algo_steps[i])
 
             elif multiplier.text[-(i+1)] == "0":  # is zero
                 lsb_box.set_stroke(RED)
@@ -765,18 +789,18 @@ class Multiplication(Scene):
             print("right_x: ", right_x, multiplier.get_center(), multiplier.get_right())
 
             print("i2 = ", i, col_step)
-            self.play(FadeIn(shift_arrows),
+            self.play(FadeIn(shift_arrows_right),
                       multiplier.animate.shift(RIGHT * col_step),
                       multiplier[-(i + 1)].animate.set_opacity(0),
                       Indicate(algo_lines[1], scale_factor=1.15),
-                      run_time=TIME.algo_indicates)
-            self.play(FadeOut(shift_arrows))
+                      run_time=TIME.algo_indicates1[i])
+            self.play(FadeOut(shift_arrows_right))
             if i == 3:
                 break
 
             self.play(Write(shift_arrows_left),
                       Indicate(algo_lines[2], scale_factor=1.15),
-                      run_time=TIME.algo_indicates)
+                      run_time=TIME.algo_indicates2[i])
 
             # shift multiplier
             multiplicand_value = multiplicand_value << 1
