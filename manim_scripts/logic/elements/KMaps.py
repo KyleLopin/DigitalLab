@@ -123,7 +123,6 @@ class KarnaughMap(VGroup):
     cell_size : float
         Size of each K-map cell.
     """
-
     def __init__(
         self,
         num_vars: int, var_names=None, values=None,
@@ -136,6 +135,7 @@ class KarnaughMap(VGroup):
     ):
         super().__init__(**kwargs)
         self.gray_fontsize = gray_fontsize
+        self.value_fontsize = value_fontsize
         self.stroke_width = stroke_width
         assert 2 <= num_vars <= 4, "KarnaughMap currently supports 2–4 variables."
         self.num_vars = num_vars
@@ -234,7 +234,7 @@ class KarnaughMap(VGroup):
             # If we have a value, put it in the corresponding cell
             val = self.values.get(m, None)
             if val is not None:
-                txt = Text(str(val), font_size=value_fontsize)
+                txt = Text(str(val), font_size=self.value_fontsize)
                 txt.move_to(self.cell_squares[(r, c)].get_center())
                 self.cell_texts[(r, c)] = txt
         print("cell text init: ", self.cell_texts)
@@ -332,9 +332,30 @@ class KarnaughMap(VGroup):
     # Animation helpers (similar flavor to TruthTable class)
     # ------------------------------------------------------------------
 
-    def write(self, items = "all", run_time=1.0):
+    def write(self, items = "all", return_mobjects=False, run_time=1.0):
         """
-        Reveal the entire map: cell grid, labels, and values.
+        Create animations to reveal parts of the Karnaugh map.
+
+        This method fades in selected structural components (grid and labels) and
+        writes the cell values. By default it returns a single `LaggedStart`
+        animation; optionally it can return the raw animation list and the
+        mobjects that were targeted.
+
+        Args:
+            items (str): Which components to reveal. Supported values:
+                - "all": grid + row/col labels + variable labels (default)
+                - "table": grid only
+                - "vars": variable labels only
+                - "labels": row/col Gray-code labels only
+            return_mobjects (bool): If True, return `(anims, mobs)` instead of a
+                `LaggedStart`, where `anims` is the list of animations and `mobs`
+                is the list of structural mobjects that were faded in.
+            run_time (float): Total runtime for the returned `LaggedStart`.
+
+        Returns:
+            Animation | tuple[list[Animation], list[Mobject]]:
+                If `return_mobjects` is False, returns a `LaggedStart` animation
+                that reveals the requested components. If True, returns `(anims, mobs)`.
         """
         anims = []
         mobs = []
@@ -358,6 +379,8 @@ class KarnaughMap(VGroup):
         for txt in self.cell_texts.values():
             anims.append(Write(txt))
 
+        if return_mobjects:
+            return anims, mobs
         return LaggedStart(*anims, lag_ratio=0.05, run_time=run_time)
 
     def write_cells(self, run_time=1.0):
@@ -710,6 +733,76 @@ class KarnaughMap(VGroup):
         outline.set_fill(opacity=0)
         return outline
 
+    def term_to_minterms(self, term: str) -> list[int]:
+        """
+        Convert a product term like "AB", "A'B'", "AB'C" into the list of minterms it covers.
+        Unspecified variables are treated as don't-cares.
+
+        Doctests
+        --------
+        >>> class _Dummy:
+        ...     num_vars = 3
+        ...     var_names = ["A", "B", "C"]
+        ...     term_to_minterms = KarnaughMap.term_to_minterms
+        ...
+        >>> d = _Dummy()
+        >>> d.term_to_minterms("AB")
+        [6, 7]
+        >>> d.term_to_minterms("A'B'")
+        [0, 1]
+        >>> d.term_to_minterms("B")
+        [2, 3, 6, 7]
+        >>> d.term_to_minterms("B'")
+        [0, 1, 4, 5]
+        >>> d.term_to_minterms("C")
+        [1, 3, 5, 7]
+        >>> d.term_to_minterms("AB'C")
+        [5]
+
+        Invalid terms
+        >>> d.term_to_minterms("Z")
+        Traceback (most recent call last):
+        ...
+        ValueError: Unknown variable 'Z' in term 'Z'. Valid: ['A', 'B', 'C']
+        """
+        t = term.replace(" ", "")
+        if not t:
+            raise ValueError("term cannot be empty")
+
+        constraints: dict[str, int] = {}
+        i = 0
+        while i < len(t):
+            ch = t[i]
+            if not ch.isalpha():
+                raise ValueError(f"Invalid term {term!r}: unexpected character {ch!r}")
+
+            var = ch
+            if var not in self.var_names:
+                raise ValueError(f"Unknown variable {var!r} in term {term!r}. Valid: {self.var_names}")
+
+            val = 1
+            if i + 1 < len(t) and t[i + 1] == "'":
+                val = 0
+                i += 1  # consume apostrophe
+
+            if var in constraints and constraints[var] != val:
+                raise ValueError(f"Conflicting literals for {var!r} in term {term!r}")
+            constraints[var] = val
+            i += 1
+
+        mins: list[int] = []
+        for m in range(2 ** self.num_vars):
+            bits = f"{m:0{self.num_vars}b}"
+            ok = True
+            for var, desired in constraints.items():
+                idx = self.var_names.index(var)
+                if int(bits[idx]) != desired:
+                    ok = False
+                    break
+            if ok:
+                mins.append(m)
+        return mins
+
 
 class KMapDemo(Scene):
     def construct(self):
@@ -722,10 +815,10 @@ class KMapDemo(Scene):
         for m in range(2**num_vars):
             values.setdefault(m, 0)
 
-        kmap = KarnaughMap(num_vars, values, var_names=["A", "B", "C"])
+        kmap = KarnaughMap(num_vars, values=values, var_names=["A", "B", "C"])
         kmap.to_edge(LEFT)
 
-        self.play(kmap.write_all(run_time=2.0))
+        self.play(kmap.write("all", run_time=2.0))
         self.wait(1)
 
         # Highlight a group, e.g. minterms 1 and 3
@@ -838,3 +931,138 @@ class KMapDemo(Scene):
 
         # 1) color change (permanent)
         self.play(cells.animate.set_color(RED), run_time=0.2)
+
+
+class KMapCheatSheet(Scene):
+    """ Make a cheat sheet for easy reference for the Manim KarnaughMap Class"""
+    def construct(self):
+        Text.set_default(font="Menlo")
+
+        num_vars = 3
+        ones = [1, 3, 5, 6, 7]
+        values = {m: 1 for m in ones}
+        for m in range(2**num_vars):
+            values.setdefault(m, 0)
+
+        kmap = KarnaughMap(num_vars, values=values, var_names=["A", "B", "C"])
+
+        self.play(kmap.write("all", run_time=1.5))
+        self.wait(0.3)
+
+        # ------------------------------------------------------------
+        # Helper for consistent callout boxes + labels
+        # ------------------------------------------------------------
+        def callout(mob: Mobject, text: str, direction=RIGHT, color=YELLOW, rt=0.5):
+            # box = SurroundingRectangle(mob, buff=0.08, color=color, stroke_width=3)
+            mob.set_color(color)
+            tag = Text(text, font_size=22).set_color(color)
+            tag.next_to(mob, direction, buff=0.25)
+            self.play(FadeIn(tag), run_time=rt)
+            self.wait(0.4)
+
+        def callout_group(mob: Mobject, text: str, direction=RIGHT, color=YELLOW, rt=0.5):
+            # For VGroups that might be empty
+            if mob is None or len(mob) == 0:
+                tag = Text(text + " -> (empty)", font_size=22).set_color(color)
+                tag.to_corner(DR)
+                self.play(FadeIn(tag), run_time=0.3)
+                self.wait(0.6)
+            callout(mob, text, direction=direction, color=color, rt=rt)
+
+        # ============================================================
+        # 1) get_cell_from_minterm(m) -> (square, text)
+        # ============================================================
+        m = 6
+        sq, txt = kmap.get_cell_from_minterm(m)
+        sq.set_stroke(color=RED, width=6)
+        txt.set_color(BLUE)
+        tag = Text(f"sq, txt =\nget_cell_from_minterm({m})",
+                   font_size=22, t2c={"sq": RED, "txt": BLUE},)
+        tag.next_to(sq if sq is not None else txt, RIGHT, buff=0.25)
+        # tag.set_color(YELLOW)
+        self.add(tag)
+        # if sq is not None:
+        #     callout(sq, f"kmap.get_cell_from_minterm({m}) -> square", direction=UP, color=RED)
+        # if txt is not None:
+        #     callout(txt, f"kmap.get_cell_from_minterm({m}) -> text", direction=DOWN, color=BLUE)
+        # ============================================================
+        # 2) get_var_label(var) -> Text
+        # ============================================================
+        A = kmap.get_var_label("A")
+        self.play(A.animate.set_color(YELLOW), run_time=0.3)
+        callout(A, 'kmap.get_var_label("A")', direction=UP, color=YELLOW)
+
+        # ============================================================
+        # 3) get_var_digits(var, value) -> VGroup of digits
+        # ============================================================
+        b0_digits = kmap.get_var_digits("B", 0)
+        # Box the *group* (surrounding rectangle uses the group's bounds)
+        callout_group(b0_digits, 'kmap.get_var_digits("B", 0)', direction=LEFT, color=GREEN)
+
+        # ============================================================
+        # 4) pulse_var_digits(var, value) -> (AnimationGroup, digits_to_restore)
+        # ============================================================
+        pulse_anim, restore_target = kmap.pulse_var_digits("B", 1, scale_factor=1.8, color=YELLOW, run_time=0.25)
+        # Show which digits are pulsing with a callout first (optional)
+        callout_group(restore_target, 'kmap.pulse_var_digits("B", 0) -> anim + restore state\nself.play(anim)', direction=DOWN, color=YELLOW,
+                      rt=0.35)
+        self.play(pulse_anim)
+        # self.play(Restore(restore_target), run_time=0.2)
+
+        # ============================================================
+        # 5) get_var_minterms(var, value) -> list[int]
+        # ============================================================
+        mins = kmap.get_var_minterms("B", 0)
+        mins_label = Text(f'kmap.get_var_minterms("B", 0) -> {mins}', font_size=22)
+        mins_label.to_corner(DR)
+        self.play(FadeIn(mins_label), run_time=0.3)
+        self.wait(0.9)
+
+        # ============================================================
+        # 6) get_var_cell_texts(var, value) -> VGroup of cell Text mobjects
+        # ============================================================
+        b0_cells = kmap.get_var_cell_texts("B", 0)
+        b0_cells.save_state()
+        self.play(b0_cells.animate.set_color(PURPLE).scale(1.15), run_time=0.25)
+        callout_group(b0_cells, 'kmap.get_var_cell_texts("B", 0)\nkmap.pulse_var_cells("B", 0)',
+                      direction=RIGHT, color=PURPLE)
+        # self.play(Restore(b0_cells), run_time=0.2)
+
+        # ============================================================
+        # 7) pulse_var_cells(var, value) -> AnimationGroup
+        # ============================================================
+        # b1_cells = kmap.get_var_cell_texts("B", 1)
+        # b1_cells.save_state()
+        # callout_group(b1_cells, 'kmap.pulse_var_cells("B", 1)', direction=RIGHT, color=RED, rt=0.35)
+        # self.play(kmap.pulse_var_cells("B", 1, scale_factor=1.4, color=RED, run_time=0.25))
+        # self.play(Restore(b1_cells), run_time=0.2)
+        #
+        # ============================================================
+        # 8) highlight_group(minterms, ...) -> SurroundingRectangle (implicant box)
+        # ============================================================
+        imp = kmap.highlight_group([2, 3], color=PURE_BLUE)
+        self.play(Create(imp), run_time=0.4)
+        callout(imp, "kmap.highlight_group([2, 3])", direction=LEFT, color=PURE_BLUE)
+        # self.play(FadeOut(imp), run_time=0.3)
+        #
+        # ============================================================
+        # 9) outline_cells(minterms, ...) -> VMobject outline (non-rect possible)
+        # ============================================================
+        outline = kmap.outline_cells([1, 3, 7], color=PURE_GREEN, stroke_width=5, buff=-0.2)
+        self.play(Create(outline), run_time=0.4)
+        callout(outline, "kmap.outline_cells([1, 3, 7],\nbuff=-0.2)", direction=RIGHT, color=PURE_GREEN)
+        # self.play(FadeOut(outline), run_time=0.3)
+        #
+        # # ============================================================
+        # # OPTIONAL: write_cells + write_cell (comment out if you want)
+        # # ============================================================
+        # # self.play(kmap.write_cells(run_time=0.8))
+        # # self.wait(0.2)
+        # # self.play(kmap.write_cell(0, 0, value="X", run_time=0.4))
+        # # self.wait(0.2)
+        #
+        # # Final frame: tint headers so screenshot looks nicer (optional)
+        # for v, c in [("A", YELLOW), ("B", GREEN), ("C", ORANGE)]:
+        #     kmap.get_var_label(v).set_color(c)
+        #
+        # self.wait(2)
