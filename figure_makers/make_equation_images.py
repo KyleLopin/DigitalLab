@@ -12,7 +12,8 @@ import matplotlib.pyplot as plt
 
 def spec_latex(
     name="F",
-    var_names=("A","B","C"),
+    vars_names=("A","B","C"),
+    vars_str = "A,B,C,D",
     minterms=None,
     maxterms=None,
     dont_cares=None,
@@ -28,7 +29,7 @@ def spec_latex(
     maxterms = [] if maxterms is None else sorted(maxterms)
     dont_cares = [] if dont_cares is None else sorted(dont_cares)
 
-    vars_str = ",".join(var_names)
+    # vars_str = ",".join(var_names)
     lhs = f"{name}({vars_str})"
 
     if style == "sum":
@@ -68,11 +69,12 @@ def show_spec(spec_str, figsize=(7,1.8), save_path=None):
 
 if __name__ == '__main__':
     # example minterms
-    s2 = spec_latex(name="f", var_names=("A", "B", "C", "D"),
-                    minterms=[0, 2, 5, 10], dont_cares=[3, 6, 9, 13, 14, 15], style="sum")
-    show_spec(s2)
+    s2 = spec_latex(name="f", vars_str="a,b,c,d",
+                    minterms=[2, 3, 4, 6, 10, 13, 14, 15],
+                    dont_cares=[3, 7, 11], style="sum")
+    show_spec(s2, save_path="Exam_2_prb1_U.png")
 
     # example MaxTerms
-    s3 = spec_latex(name="f", var_names=("A", "B", "C", "D"),
+    s3 = spec_latex(name="f", var_names="A,B,C,D",
                     maxterms=[1, 3, 10, 11, 13, 14, 15], dont_cares=[4, 6], style="prod")
     show_spec(s3)
