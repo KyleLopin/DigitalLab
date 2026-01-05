@@ -40,7 +40,8 @@ from base import FullAdder, Mux4, Shifter
 LABEL_FONT_SIZE = 20
 
 
-def add_rocket_chip_half_alu(d: schemdraw.Drawing):
+def add_rocket_chip_half_alu(d: schemdraw.Drawing,
+                             basic=False):
     """
     Add a partial Rocket Chip–style to an existing Drawing.
 
@@ -77,7 +78,10 @@ def add_rocket_chip_half_alu(d: schemdraw.Drawing):
     d.add(lines.Line().left(d.unit*0.2))
     adder = d.add(FullAdder().anchor("Sum").right())
     d.add(lines.Line().at(adder.B).left(d.unit*.2))
-    adder_xor = d.add(Xor().anchor("out").right())
+    if basic:
+        adder_b = d.add(lines.Line().at(adder.B).left(d.unit*.6).color("blue"))
+    if not basic:
+        adder_xor = d.add(Xor().anchor("out").right())
     # endregion add adder
     # region logic unit
     d.add(lines.Line().at(mux_alu.I1).left(d.unit * .6))
@@ -109,17 +113,33 @@ def add_rocket_chip_half_alu(d: schemdraw.Drawing):
     d.add(lines.Line().at(shifter.A).left(d.unit * 0.2).color("red"))
     d.add(lines.Line().toy(adder.A).color("red"))
     d.add(lines.Line().up(d.unit * 0.5).color("red"))
-    a_line = d.add(lines.Line().left(d.unit*0.5).color("red"))
+    a_line = d.add(lines.Line().left(d.unit*0.5).color("red").label("A", loc="left", fontsize=LABEL_FONT_SIZE))
     for node in [adder.A, and_.in1, or_.in1, xor.in1]:
         d.add(lines.Line().at(node).tox(a_line.start).color("red").dot())
 
     d.add(lines.Line().at(shifter.B).left(d.unit * 0.5).color("blue"))
-    d.add(lines.Line().toy(adder_xor.in1).color("blue"))
-    b_line = d.add(lines.Line().tox(a_line.end).color("blue"))
-    for node in [adder_xor.in1, and_.in2, or_.in2, xor.in2]:
+    b_nodes = [None, and_.in2, or_.in2, xor.in2]
+    if basic:
+        seg = d.add(lines.Line().toy(adder_b.end).color("blue"))
+        b_nodes[0] = seg.end
+        d.add(lines.Line().at(adder_b.end).to(seg.end).color("blue").dot())
+    else:
+        b_nodes[0] = adder_xor.in1
+        d.add(lines.Line().toy(adder_xor.in1).color("blue"))
+    b_line = d.add(lines.Line().tox(a_line.end).color("blue").label("B", loc="left", fontsize=LABEL_FONT_SIZE))
+
+    for node in b_nodes:
         d.add(lines.Line().at(node).tox(b_line.start).color("blue").dot())
 
     # endregion A/B-lines
+
+    # region add funct1
+    if not basic:
+        d.add(lines.Line().at(adder_xor.in2).left(d.unit*0.3).color("green"))
+        d.add(lines.Line().down(d.unit*3.2).color("green").label("funct1", loc="left", fontsize=LABEL_FONT_SIZE))
+
+    # endregion add funct1
+
     # Return useful connection points for higher-level wiring
     return {
         "A": a_line.start,  # A bus connection point
@@ -130,5 +150,6 @@ def add_rocket_chip_half_alu(d: schemdraw.Drawing):
 
 if __name__ == '__main__':
     with schemdraw.Drawing() as d:
-        add_rocket_chip_half_alu(d)
+        add_rocket_chip_half_alu(d, basic=True)
+        d.save("rocket_chip_schematic_alu_funct_3.svg")
         d.show()
