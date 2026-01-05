@@ -444,7 +444,7 @@ class KarnaughMap(VGroup):
 
             Example:
                 get_var_digits("B", 0) returns the '0' digit in the row labels "00" and "01"
-                (assuming rows are BC and Gray-ordered).
+             (assuming rows are BC and Gray-ordered).
             """
         bit = str(value)
 
@@ -456,13 +456,28 @@ class KarnaughMap(VGroup):
                     hits.append(self.col_gray_digits[c][k])  # digit object
             return VGroup(*hits)
 
-        if var in self.row_vars:
+        elif var in self.row_vars:
             k = self.row_vars.index(var)  # which digit inside the row Gray strings
             hits = []
             for r, bits in enumerate(self.row_gray):
                 if bits[k] == bit:
                     hits.append(self.row_gray_digits[r][k])
             return VGroup(*hits)
+        elif len(var) == 2 :  # if asking for a combination, go here
+            # this is going to be dirty, but whatever, the gray code is 0 1 3 2 so
+            gray_map = {0: 0, 1: 1, 2: 3, 3: 2}
+            num = int(value)
+            print(num, var, var[0], self.row_gray_digits, self.col_gray_digits)
+            if var[0] in self.row_vars:
+                return VGroup(self.row_gray_digits[gray_map[num]])
+            elif var[0] in self.col_vars:
+                return VGroup(self.col_gray_digits[gray_map[num]])
+            else:  # this part is put together pretty dirty
+                raise ValueError("Something is broke in here, this parts needs work still")
+
+        else:  # don't fail silently
+            raise KeyError(f"var: {var} not found, valid entries are column vars: "
+                           f"{self.col_vars} and row vars: {self.row_vars}")
 
         return VGroup()
 
@@ -803,6 +818,22 @@ class KarnaughMap(VGroup):
                 mins.append(m)
         return mins
 
+    def get_label(self, *args, **kwargs):
+        """
+        Guard method: KarnaughMap does not use `get_label()`.
+
+        Use:
+          - get_var_label(var)   -> the variable name Text (e.g. "A")
+          - get_var_digits(var, value) -> the Gray-code digit Text objects for var=value
+        """
+        valid_vars = ", ".join(self.var_names)
+        raise AttributeError(
+            "KarnaughMap has no `get_label()` method.\n"
+            "Use `get_var_label(var)` for the variable name label (e.g. 'A').\n"
+            "Use `get_var_digits(var, value)` for Gray-code digits where var=value.\n"
+            f"Valid variables: {valid_vars}"
+        )
+
 
 class KMapDemo(Scene):
     def construct(self):
@@ -1066,3 +1097,12 @@ class KMapCheatSheet(Scene):
         #     kmap.get_var_label(v).set_color(c)
         #
         # self.wait(2)
+
+if __name__ == '__main__':
+    kmap = KarnaughMap(num_vars=3, var_names=["A", "B", "C"],
+                       stroke_width=4)
+    print(kmap.col_gray_digits)
+    print(kmap.row_gray_digits)
+    print(kmap.col_vars)
+    print(kmap.row_vars)
+    print(kmap.get_var_digits("BC", "01"))
