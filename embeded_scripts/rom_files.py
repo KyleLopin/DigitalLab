@@ -68,8 +68,33 @@ def make_bcd_hex6(_start=0, _end=255):
 if __name__ == '__main__':
     # standard libraries
     import csv
-    lines = make_bcd_hex6()
-    print(lines)
-    with open("rom_8bit_to_bcd6hex.csv", "w") as f:
-        f.write(",".join(lines))
+    # lines = make_bcd_hex6()
+    # print(lines)
+    # with open("rom_8bit_to_bcd6hex.csv", "w") as f:
+    #     f.write(",".join(lines))
+    data = []
+    for i in range(99):
+        print(i)
+        ones = i % 10
+        data.append(ones)
 
+    print(data)
+
+    data = []
+    for i in range(102):  # 99 first
+        print(i)
+        ones = i % 10
+        tens = i // 10
+        data.append(f"0x{tens}{ones}")
+
+    print(data)
+    data = []
+    for i in range(256):
+        print(i)
+        ones = i % 10
+        tens = (i // 10) % 10
+        hundreds = i // 100
+        data.append(f"0x{hundreds}{tens}{ones}")
+
+    print(data)
+    print(" ".join(data))
