@@ -577,9 +577,10 @@ class KarnaughMap(VGroup):
 
     def highlight_group(self, minterms, color=YELLOW,
                         buff=-0.10, stroke_width=3,
-                        corner_radius=0.3):
+                        corner_radius=0.3, wrap: bool = True,):
         """
         Draw a rounded rectangle around a group of minterms and return it.
+        If wrap=True, handles wrap-around adjacency by splitting into edge boxes.
 
         This just computes and returns the implicant outline; it does NOT
         add it to the scene automatically. You use it like any other
