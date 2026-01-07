@@ -637,25 +637,10 @@ class CircuitBuilder:
                 else:
                     term_mob = OrGate(leads=leads)
 
-            term_mobs.scale(self.gate_scale)
+            term_mob.scale(self.gate_scale)
             term_mobs.add(term_mob)
-            group.add(term_mobs)
+        group.add(term_mobs)
 
-            # gate.scale(self.gate_scale)
-            # gate.move_to([self.x_term, y, 0])
-            # term_gates.add(gate)
-            # term_outputs.append(gate.get_out())
-
-        # group.add(term_gates)
-        # --- Arrange + place as a column ---
-        # term_gates.arrange(DOWN, buff=0.6, aligned_edge=LEFT)
-
-        # Option 2 (often nicer): pin the TOP of the column at y_top
-        # term_gates.to_edge(UP, buff=0.6)
-        # term_gates.set_x(self.x_term)
-
-        # Now term outputs are correct (after positioning)
-        # term_outputs = [g.get_out() for g in term_gates]
         # arrange/position the column
         term_mobs.arrange(DOWN, buff=0.6, aligned_edge=LEFT)
         term_mobs.to_edge(UP, buff=0.6)
@@ -673,8 +658,6 @@ class CircuitBuilder:
 
         final_gate.scale(self.gate_scale)
         final_gate.move_to([self.x_out, self.y_top - (len(two_level_terms)-1)*self.term_vgap/2, 0])
-        # final_gate.set_y(term_gates.get_center()[1])
-        # final_gate.set_y(term_gates[1].get_center()[1])
         final_gate.set_y(term_mobs[1].get_center()[1])
         group.add(final_gate)
 
