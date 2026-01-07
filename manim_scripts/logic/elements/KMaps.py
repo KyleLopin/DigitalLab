@@ -577,14 +577,20 @@ class KarnaughMap(VGroup):
 
     def highlight_group(self, minterms, color=YELLOW,
                         buff=-0.10, stroke_width=3,
-                        corner_radius=0.3, wrap: bool = True,):
+                        corner_radius=0.3,
+                        edge=None,        # NEW: None|"top"|"bottom"|"left"|"right"
+                        ):
         """
-        Draw a rounded rectangle around a group of minterms and return it.
-        If wrap=True, handles wrap-around adjacency by splitting into edge boxes.
+        Draw an outline around a group of minterms.
 
-        This just computes and returns the implicant outline; it does NOT
-        add it to the scene automatically. You use it like any other
-        Manim mobject:
+        If edge is provided, clamp that side of the outline to the map boundary
+        (top/bottom/left/right). This is a simple way to visually imply wrap-around
+        without special casing geometry.
+
+        Notes:
+          - When edge is not None, we IGNORE buff on purpose (per your request).
+          - Returns a RoundedRectangle (always a closed shape).
+            The "wrap" feeling comes from the outline touching the map boundary.
 
         Basic usage
         -----------
@@ -652,6 +658,156 @@ class KarnaughMap(VGroup):
             corner_radius=corner_radius,
         )
         return box
+
+    def highlight_group_open_wrap(
+            self, minterms, side,
+            *,
+            color=YELLOW,
+            buff=-0.10,
+            stroke_width=3,
+            corner_radius=0.3,
+    ) -> Mobject:
+        box = self.highlight_group(minterms=minterms,
+                                   color=color, buff=buff,
+                                   stroke_width=stroke_width,
+                                   corner_radius=corner_radius)
+
+        squares = box
+        top = squares.get_top()[1]
+        bottom = squares.get_bottom()[1]
+        left = squares.get_left()[0]
+        right = squares.get_right()[0]
+        outline = self.open_rounded_box_from_bounds(
+            left, right, bottom, top, open_edge=side,
+            r=corner_radius, color=color, stroke_width=stroke_width
+        )
+        return outline
+
+    def open_rounded_box_from_bounds(
+            self, left, right, bottom, top,
+            *,
+            open_edge="top",  # "top"|"bottom"|"left"|"right"
+            r=0.15,
+            color=RED,
+            stroke_width=4,
+    ):
+        w = right - left
+        h = top - bottom
+        r = min(r, w / 2, h / 2)
+
+        # Corner arc centers
+        cul = np.array([left + r/2, top - r/2, 0])
+        cur = np.array([right - r/2, top - r/2, 0])
+        cdr = np.array([right - r/2, bottom + r/2, 0])
+        cdl = np.array([left + r/2, bottom + r/2, 0])
+
+        # Helpful endpoints of straight segments
+        # (they stop r short of the corners so arcs can connect)
+        top_L = np.array([left + r, top, 0])
+        top_R = np.array([right - r, top, 0])
+        bot_L = np.array([left + r, bottom, 0])
+        bot_R = np.array([right - r, bottom, 0])
+
+        left_T = np.array([left, top - r, 0])
+        left_B = np.array([left, bottom + r, 0])
+        right_T = np.array([right, top - r, 0])
+        right_B = np.array([right, bottom + r, 0])
+
+        # Corner arcs (quarter-circles)
+        arc_ul = Arc(radius=r, start_angle=PI / 2, angle=PI / 2).move_to(cul)
+        arc_ur = Arc(radius=r, start_angle=0, angle=PI / 2).move_to(cur)
+        arc_dr = Arc(radius=r, start_angle=-PI / 2, angle=PI / 2).move_to(cdr)
+        arc_dl = Arc(radius=r, start_angle=PI, angle=PI / 2).move_to(cdl)
+
+        # Straight sides
+        top_line = Line(top_L, top_R)
+        bottom_line = Line(bot_L, bot_R)
+        left_line = Line(left_B, left_T)
+        right_line = Line(right_B, right_T)
+
+        parts = VGroup(top_line, right_line, bottom_line, left_line, arc_ul, arc_ur, arc_dr, arc_dl)
+        map_top = self.cells_group.get_top()[1]
+        map_bottom = self.cells_group.get_bottom()[1]
+        map_left = self.cells_group.get_left()[0]
+        map_right = self.cells_group.get_right()[0]
+
+        # Remove the open side + its adjacent corner arcs
+        if open_edge == "top":
+            parts.remove(top_line, arc_ul, arc_ur)
+            parts.add(Line(left_T,  np.array([left_T[0],  map_top, 0])))
+            parts.add(Line(right_T, np.array([right_T[0], map_top, 0])))
+        elif open_edge == "bottom":
+            parts.remove(bottom_line, arc_dl, arc_dr)
+            parts.add(Line(left_B, np.array([left_B[0], map_bottom, 0])))
+            parts.add(Line(right_B, np.array([right_B[0], map_bottom, 0])))
+        elif open_edge == "left":
+            parts.remove(left_line, arc_ul, arc_dl)
+            parts.add(Line(top_L, np.array([map_left, top_L[1], 0])))
+            parts.add(Line(bot_L, np.array([map_left, bot_L[1], 0])))
+        elif open_edge == "right":
+            parts.remove(right_line, arc_ur, arc_dr)
+            parts.add(Line(top_R, np.array([map_right, top_R[1], 0])))
+            parts.add(Line(bot_R, np.array([map_right, bot_R[1], 0])))
+        elif open_edge == "ul":
+            parts = VGroup(arc_dr)
+            parts.add(Line(right_B, np.array([right_T[0], map_top, 0])))
+            parts.add(Line(bot_R, np.array([map_left, bot_R[1], 0])))
+        elif open_edge == "ur":
+            parts = VGroup(arc_dl)
+            parts.add(Line(left_B, np.array([left_T[0], map_top, 0])))
+            parts.add(Line(bot_L, np.array([map_right, bot_L[1], 0])))
+        elif open_edge == "dl":
+            parts = VGroup(arc_ur)
+            parts.add(Line(right_T, np.array([right_T[0], map_bottom, 0])))
+            parts.add(Line(top_R, np.array([map_left, top_R[1], 0])))
+        elif open_edge == "dr":
+            parts = VGroup(arc_ul)
+            parts.add(Line(left_T, np.array([left_T[0], map_bottom, 0])))
+            parts.add(Line(top_L, np.array([map_right, top_L[1], 0])))
+
+        else:
+            raise ValueError(f"open_edge must be 'top','bottom','left','right', 'ul', .\n{open_edge} is not valid")
+
+        parts.set_stroke(color=color, width=stroke_width)
+        parts.set_fill(opacity=0)
+        return parts
+
+    def _open_cell_outline(
+            self,
+            sq: Square,
+            *,
+            missing: str,  # "top"|"bottom"|"left"|"right"
+            buff: float = -0.10,
+            color=YELLOW,
+            stroke_width: float = 3,
+    ) -> VMobject:
+        """
+        Outline a single cell but omit one side to visually imply wrap-around.
+        """
+        # Expand/shrink the square slightly (buff < 0 draws inside the cell)
+        w = sq.get_width() + 2 * buff
+        h = sq.get_height() + 2 * buff
+        cx, cy, _ = sq.get_center()
+
+        # Corners of the buffered rectangle
+        ul = np.array([cx - w / 2, cy + h / 2, 0])
+        ur = np.array([cx + w / 2, cy + h / 2, 0])
+        dr = np.array([cx + w / 2, cy - h / 2, 0])
+        dl = np.array([cx - w / 2, cy - h / 2, 0])
+
+        # Build a polyline that skips one edge
+        pts = {
+            "top": [ul, dl, dr, ur],  # skip ul->ur
+            "bottom": [ul, ur, dr, dl],  # skip dl->dr
+            "left": [ur, ul, dl, dr],  # skip ul->dl
+            "right": [ul, ur, dr, dl],  # skip ur->dr
+        }[missing]
+
+        m = VMobject()
+        m.set_points_as_corners(pts)
+        m.set_stroke(color=color, width=stroke_width)
+        m.set_fill(opacity=0)
+        return m
 
     def outline_cells(self, minterms, color=RED, stroke_width=4, buff=0.0) -> VMobject:
         """
@@ -976,9 +1132,13 @@ class KMapCheatSheet(Scene):
         for m in range(2**num_vars):
             values.setdefault(m, 0)
 
-        kmap = KarnaughMap(num_vars, values=values, var_names=["A", "B", "C"])
-
+        kmap = KarnaughMap(num_vars, minterms=[1, 3, 5, 6, 7], var_names=["A", "B", "C"])
+        init_text = Text('''kmap = KarnaughMap(num_vars=3, minterms=[1, 3, 5, 6, 7],
+                               \n                             var_names=["A", "B", "C"])''',
+                         font_size=24
+                         ).to_corner(UR)
         self.play(kmap.write("all", run_time=1.5))
+        self.play(Write(init_text))
         self.wait(0.3)
 
         # ------------------------------------------------------------
@@ -1022,7 +1182,7 @@ class KMapCheatSheet(Scene):
         # ============================================================
         A = kmap.get_var_label("A")
         self.play(A.animate.set_color(YELLOW), run_time=0.3)
-        callout(A, 'kmap.get_var_label("A")', direction=UP, color=YELLOW)
+        callout(A, 'kmap.get_var_label("A")', direction=LEFT, color=YELLOW)
 
         # ============================================================
         # 3) get_var_digits(var, value) -> VGroup of digits
