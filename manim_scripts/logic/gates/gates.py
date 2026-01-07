@@ -32,7 +32,7 @@ class LogicGateBase(VGroup):
         output_label=None,          # e.g. "F"
         output_label_dir=RIGHT,
         output_label_buff=0.1,
-        output_label_scale=2.4,
+        output_label_scale=1.4,
         bubble=False,               # NAND/NOR
         bubble_radius=0.18,
         bubble_gap=0.02,
@@ -137,6 +137,7 @@ class AndGate(LogicGateBase):
         arc = Arc(radius=r, start_angle=-PI/2, angle=PI)
         return VGroup(left, top, bottom, arc)
 
+
 class NandGate(AndGate):
     def __init__(self, *args, **kwargs):
         kwargs["bubble"] = True
@@ -187,6 +188,7 @@ def _closed_path(points, stroke_width=3):
     if np.linalg.norm(np.array(pts[0]) - np.array(pts[-1])) > 1e-6:
         pts.append(pts[0])
     return _polyline(pts, stroke_width=stroke_width)
+
 
 class OrGate(VGroup):
     """
@@ -277,7 +279,7 @@ class OrGate(VGroup):
 
         # Output bubble for NOR
         if nor:
-            bubble = Circle(radius=notbubble).set_stroke(width=stroke_width)
+            bubble = Circle(radius=notbubble).set_stroke(width=stroke_width).set_color(WHITE)
             # place like schemdraw: center at (tip + notbubble, 0)
             bubble.move_to(np.array([tip + notbubble, 0.0, 0.0]))
             self.add(bubble)
@@ -286,13 +288,31 @@ class OrGate(VGroup):
             out_start = np.array([tip, 0.0, 0.0])
 
         # Input spacing dy (schemdraw rules)
+        # if inputs == 2:
+        #     dy = gateh * 0.5
+        # elif inputs == 3:
+        #     dy = gateh * 0.33
+        # else:
+        #     dy = gateh * 0.4
+        #     backlen = dy * (inputs - 1)
+
+        # ---- Input spacing dy (fit pins inside gate height) ----
+        # Base dy preference (your old behavior)
         if inputs == 2:
-            dy = gateh * 0.5
+            dy_base = gateh * 0.5
         elif inputs == 3:
-            dy = gateh * 0.33
+            dy_base = gateh * 0.33
         else:
-            dy = gateh * 0.4
-            backlen = dy * (inputs - 1)
+            dy_base = gateh * 0.4
+            backlen = dy_base * (inputs - 1)
+
+        # Compute max allowed dy so top/bottom pins stay within the OR outline height.
+        # Pin y positions are: y = (i + 1 - (inputs/2 + 0.5)) * dy
+        # max |y| = ((inputs - 1)/2) * dy
+        max_pin_y_allowed = orheight * 0.92  # keep a little margin inside the outline
+        dy_max = max_pin_y_allowed / ((inputs - 1) / 2) if inputs > 1 else dy_base
+
+        dy = min(dy_base, dy_max)
 
         # Input leads + optional input bubbles
         for i in range(inputs):
@@ -317,7 +337,7 @@ class OrGate(VGroup):
                 # endpt = np.array([xback, y, 0.0])
             p_left = np.array([0.0, y, 0.0])  # back of lead (leftmost)
             # pin at the gate input point (x=0)
-            pin = _pin(f"in{in_num}", np.array([0.0, y, 0.0]))
+            _pin(f"in{in_num}", np.array([0.0, y, 0.0]))
 
             # label at the *left* end of the lead
             lead_text = leads[i]  # NOTE: leads list is top->bottom in your i loop
@@ -327,15 +347,20 @@ class OrGate(VGroup):
                 self.add(lab)
 
         # Extended back for large number of inputs
-        if inputs > 3:
-            self.add(Line(np.array([leadin_eff, backlen/2 + dy/2, 0]),
-                          np.array([leadin_eff, orheight, 0])).set_stroke(width=stroke_width))
-            self.add(Line(np.array([leadin_eff, -backlen/2 - dy/2, 0]),
-                          np.array([leadin_eff, -orheight, 0])).set_stroke(width=stroke_width))
-
+        # if inputs > 3:
+        #     # self.add(Line(np.array([leadin_eff, backlen/2 + dy/2, 0]),
+        #     #               np.array([leadin_eff, orheight, 0])).set_stroke(width=stroke_width))
+        #     # self.add(Line(np.array([leadin_eff, -backlen/2 - dy/2, 0]),
+        #     #               np.array([leadin_eff, -orheight, 0])).set_stroke(width=stroke_width))
+        #     extra_h_per_input = 0.45  # tweak
+        #     target_h = self.height + (inputs - 3) * extra_h_per_input
+        #     self.stretch_to_fit_height(target_h)
+            # self.stretch(1.5, dim=0)
+        _pin(f"in{in_num}", np.array([0.0, y, 0.0]))
         # Output lead
         out_end = out_start + RIGHT * leadout
         self.add(Line(out_start, out_end).set_stroke(width=stroke_width))
+        _pin("out", out_end)
 
         # Output label at end of stub
         if output_label is not None:
@@ -353,11 +378,21 @@ class OrGate(VGroup):
             self.anchors[f"in{inputs - i}"] = np.array([0.0, y, 0.0])
 
     def get_in(self, i: int):
-        # i is 0-based: 0,1,2...
-        return np.array(self.anchors[f"in{i + 1}"], dtype=float)
+        """
+        0-based, top-to-bottom.
+        Your pins are named inN..in1 (top is inN).
+        """
+        name = f"in{self.inputs - i}"
+        return self._pins[name].get_center()
+
+    def input_anchors(self):
+        return [self.get_in(i) for i in range(self.inputs)]
 
     def get_out(self):
-        return np.array(self.anchors["out"], dtype=float)
+        return self._pins["out"].get_center()
+
+    def output_anchor(self):
+        return self.get_out()
 
     def to_y(self, y: float):
         self.shift((y - self.get_center()[1]) * UP)
@@ -443,20 +478,237 @@ class AndGate_Pre(VGroup):
     def output_anchor(self):
         return self.get_right()
 
+
 class Demo(Scene):
     def construct(self):
-        gate = AndGate().to_edge(RIGHT)
-        self.play(Create(gate))
+        builder = CircuitBuilder(var_order=("A", "B", "C"))
 
-        ins = gate.input_anchors(2)
-        out = gate.output_anchor()
+        sop = [
+            [("A", 1), ("B", 0), ("C", 1)],   # A B' C
+            [("A", 0), ("B", 1), ("C", 1)],   # A' B C
+            # [("A", 1), ("B", 1)],  # A B
+            [("C", 0)],  # C'
+            # [("A", 1), ("C", 0)],  # A C'
+            # [("A", 1), ("C", 0)]
+        ]
+        sop_circ = builder.build_sop(sop, output_label="F").to_corner(UL, buff=0.6).scale(0.9)
 
-        a = Tex("A").next_to(ins[0], LEFT)
-        b = Tex("B").next_to(ins[1], LEFT)
+        # pos = [
+        #     [("A", 1), ("B", 0), ("C", 1)],   # (A + B' + C)
+        #     [("A", 0), ("B", 1), ("C", 0)],   # (A' + B + C')
+        # ]
+        # pos_circ = builder.build_pos(pos, output_label="F").to_corner(UR, buff=0.6).scale(0.9)
 
-        wa = Line(a.get_right(), ins[0])
-        wb = Line(b.get_right(), ins[1])
-        wo = Line(out, out + RIGHT*1.5)
+        self.play(Create(sop_circ), run_time=2.0)
+        # self.play(Create(pos_circ), run_time=2.0)
+        self.wait(1)
 
-        self.play(Write(a), Write(b))
-        self.play(Create(wa), Create(wb), Create(wo))
+# helper functions to make compound circuits:
+def manhattan_wire(p1, p2, x_mid=None, y_mid=None, stroke_width=3):
+    """
+    Returns a VGroup of 2 or 3 Line segments connecting p1->p2 with right angles.
+    Provide x_mid for H-V-H routing, or y_mid for V-H-V routing.
+    """
+    p1 = np.array(p1, dtype=float)
+    p2 = np.array(p2, dtype=float)
+
+    if x_mid is not None:
+        a = np.array([x_mid, p1[1], 0.0])
+        b = np.array([x_mid, p2[1], 0.0])
+        segs = [Line(p1, a), Line(a, b), Line(b, p2)]
+    elif y_mid is not None:
+        a = np.array([p1[0], y_mid, 0.0])
+        b = np.array([p2[0], y_mid, 0.0])
+        segs = [Line(p1, a), Line(a, b), Line(b, p2)]
+    else:
+        # Default: go horizontal then vertical (2 segments)
+        corner = np.array([p2[0], p1[1], 0.0])
+        segs = [Line(p1, corner), Line(corner, p2)]
+
+    wire = VGroup(*segs)
+    wire.set_stroke(width=stroke_width)
+    return wire
+
+
+class DegenerateTerm(VGroup):
+    """
+    A 1-literal 'term' that skips an inner gate.
+    Draws a label and a short stub; exposes get_out() like your gates.
+    """
+    def __init__(self, literal_tex: str, stub_len=0.7, stroke_width=3, label_scale=1.2, **kwargs):
+        super().__init__(**kwargs)
+
+        self.label = MathTex(literal_tex).scale(label_scale)
+
+        # short output stub to the right
+        self.stub = Line(ORIGIN, RIGHT * stub_len).set_stroke(width=stroke_width)
+
+        # arrange label + stub as a small block
+        self.label.next_to(self.stub, LEFT, buff=0.15)
+        self.add(self.label, self.stub)
+
+        # live output pin so it moves with transforms
+        self._out_pin = VectorizedPoint(self.stub.get_end())
+        self.add(self._out_pin)
+
+    def get_out(self):
+        return self._out_pin.get_center()
+
+    # optional: so it behaves similarly if you ever want input anchors
+    def input_anchors(self):
+        return []
+
+
+class CircuitBuilder:
+    def __init__(
+        self,
+        var_order=("A", "B", "C"),
+        gate_scale=0.7,
+        stroke_width=3,
+        x_in=-5.5,
+        x_term=-1.5,
+        x_out=1.5,
+        y_top=2.5,
+        term_vgap=2.4,
+        in_vgap=0.3,
+    ):
+        self.var_order = list(var_order)
+        self.gate_scale = gate_scale
+        self.stroke_width = stroke_width
+        self.x_in = x_in
+        self.x_term = x_term
+        self.x_out = x_out
+        self.y_top = y_top
+        self.term_vgap = term_vgap
+        self.in_vgap = in_vgap
+
+    def _literal_tex(self, var, val):
+        # val==1 -> A, val==0 -> \overline{A}
+        return var if val == 1 else rf"\overline{{{var}}}"
+
+    def _make_inputs(self):
+        """Input labels and anchor points (just points in space)."""
+        inputs = VGroup()
+        anchors = {}  # var -> position
+        for i, v in enumerate(self.var_order):
+            y = self.y_top - i * self.in_vgap
+            t = MathTex(v).scale(1.1).move_to([self.x_in, y, 0])
+            inputs.add(t)
+            anchors[v] = t.get_right()
+        return inputs, anchors
+
+    def build_sop(self, sop_terms, output_label="F"):
+        """
+        sop_terms: list of terms, each term is list of (var, val) where val 1=non-inverted, 0=inverted.
+        Builds: OR of AND terms.
+        """
+        return self._build(two_level_terms=sop_terms, inner="AND", outer="OR", output_label=output_label)
+
+    def build_pos(self, pos_terms, output_label="F"):
+        """
+        pos_terms: list of sums, each sum is list of (var, val)
+        Builds: AND of OR terms.
+        """
+        return self._build(two_level_terms=pos_terms, inner="OR", outer="AND", output_label=output_label)
+
+    def _build(self, two_level_terms, inner, outer, output_label="F"):
+        group = VGroup()
+
+        # Term gates (column)
+        # term_gates = VGroup()
+        term_outputs = []
+        term_mobs = VGroup()
+
+        for t_i, term in enumerate(two_level_terms):
+            # y = self.y_top - t_i * self.term_vgap
+            leads = [self._literal_tex(v, val) for v, val in term]
+
+            # Choose gate type for inner level
+            if len(term) == 1:  # degenerate: single literal, skip inner gate
+                term_mob = DegenerateTerm(
+                    literal_tex=leads[0],
+                    stub_len=0.7,
+                    stroke_width=self.stroke_width,
+                    label_scale=1.2,
+                )
+            else:
+                if inner == "AND":
+                    term_mob = AndGate(leads=leads)
+                else:
+                    term_mob = OrGate(leads=leads)
+
+            term_mobs.scale(self.gate_scale)
+            term_mobs.add(term_mob)
+            group.add(term_mobs)
+
+            # gate.scale(self.gate_scale)
+            # gate.move_to([self.x_term, y, 0])
+            # term_gates.add(gate)
+            # term_outputs.append(gate.get_out())
+
+        # group.add(term_gates)
+        # --- Arrange + place as a column ---
+        # term_gates.arrange(DOWN, buff=0.6, aligned_edge=LEFT)
+
+        # Option 2 (often nicer): pin the TOP of the column at y_top
+        # term_gates.to_edge(UP, buff=0.6)
+        # term_gates.set_x(self.x_term)
+
+        # Now term outputs are correct (after positioning)
+        # term_outputs = [g.get_out() for g in term_gates]
+        # arrange/position the column
+        term_mobs.arrange(DOWN, buff=0.6, aligned_edge=LEFT)
+        term_mobs.to_edge(UP, buff=0.6)
+        term_mobs.set_x(self.x_term)
+
+        # outputs AFTER positioning
+        term_outputs = [m.get_out() for m in term_mobs]
+
+        # Final gate (combiner)
+        if outer == "OR":
+            final_gate = OrGate(leads=[None] * len(two_level_terms),
+                                output_label=output_label).scale(2.0)
+        else:
+            final_gate = AndGate(leads=[None] * len(two_level_terms), output_label=output_label)
+
+        final_gate.scale(self.gate_scale)
+        final_gate.move_to([self.x_out, self.y_top - (len(two_level_terms)-1)*self.term_vgap/2, 0])
+        # final_gate.set_y(term_gates.get_center()[1])
+        # final_gate.set_y(term_gates[1].get_center()[1])
+        final_gate.set_y(term_mobs[1].get_center()[1])
+        group.add(final_gate)
+
+        # --- Wiring ---
+        wires = VGroup()
+        # Wire term outputs into final gate inputs
+        final_ins = final_gate.input_anchors()
+        final_ins = list(reversed(final_ins))
+        x_mid = (self.x_term + self.x_out) / 2
+        colors = [RED, BLUE, GREEN]
+        # i=0
+        term_outputs_sorted = sorted(term_outputs, key=lambda p: p[1], reverse=True)
+        final_ins_sorted = sorted(final_gate.input_anchors(), key=lambda p: p[1], reverse=True)
+
+        for t_out, f_in in zip(term_outputs_sorted, final_ins_sorted, strict=False):
+            p1 = np.array(t_out, dtype=float)
+            p2 = np.array(f_in, dtype=float)
+            wire = manhattan_wire(p1, p2, x_mid=x_mid, stroke_width=self.stroke_width)
+            # wire.set_color(colors[i])
+            # i+=1
+            wires.add(wire)
+        group.add(wires)
+
+        # test dots to understand geometry
+        # dbg_in_dots = VGroup(*[
+        #     Dot(p, radius=0.05) for p in final_ins
+        # ]).set_color(YELLOW)
+        # group.add(dbg_in_dots)
+
+        return group
+        # Helpful handles
+        group.inputs = inputs_mob
+        group.term_gates = term_gates
+        group.final_gate = final_gate
+        group.wires = wires
+
+        return group
