@@ -46,7 +46,7 @@ class GateCheatSheet(Scene):
         col = VGroup(*tiles).arrange(DOWN, buff=0.55, aligned_edge=LEFT)
 
         # Put the first tile at UL, then everything follows below
-        col.scale(0.5)
+        col.scale(0.6)
         col.to_corner(UL)
 
         col2_tiles = []
@@ -55,8 +55,31 @@ class GateCheatSheet(Scene):
 
         tile_and3 = self.make_tile(and3, 'AndGate(leads=["A", "B", "C"])')
         col2_tiles.append(tile_and3)
+        # make SOP form
+        builder = CircuitBuilder(var_order=("A", "B", "C"))
+
+        sop = [
+            [("A", 1), ("B", 0), ("C", 1)],  # A B' C
+            [("A", 0), ("B", 1), ("C", 1)],  # A' B C
+        ]
+        sop_circ = builder.build_sop(sop, output_label="X").to_corner(UL, buff=0.6).scale(0.9)
+        self.play(Create(sop_circ))
+        sop_circ.gates[0].set_color(RED)
+        sop_circ.wires[1].set_color(PURE_BLUE)
+        tile_sop = self.make_tile(sop_circ, """
+        builder = CircuitBuilder(var_order=("A", "B", "C"))
+        sop = [
+            [("A", 1), ("B", 0), ("C", 1)],  # A B' C
+            [("A", 0), ("B", 1), ("C", 1)],  # A' B C
+        ]
+        sop_circ = builder.build_sop(sop, output_label="X")
+        sop_circ.gates[0].set_color(RED)
+        sop_circ.wires[1].set_color(PURE_BLUE)
+        """)
+        col2_tiles.append(tile_sop)
+
         col2 = VGroup(*col2_tiles).arrange(DOWN, buff=0.55, aligned_edge=LEFT)
-        col2.scale(0.5)
+        col2.scale(0.6)
         col2.next_to(col, RIGHT)
         # (Optional) scale to fit if you add many gates
         # col.scale(0.9)
@@ -70,6 +93,7 @@ class GateCheatSheet(Scene):
             gate, label = tile
             self.play(Create(gate), run_time=0.6)
             self.play(FadeIn(label), run_time=0.25)
+
 
         self.wait(1)
 
