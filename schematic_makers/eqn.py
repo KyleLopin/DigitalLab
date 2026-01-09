@@ -11,7 +11,7 @@ import schemdraw
 import schemdraw.elements as elm
 from schemdraw.logic import And, Or, Not
 
-with schemdraw.Drawing(file='logic_expr.svg') as d:
+with schemdraw.Drawing(file='images/logic_expr.svg') as d:
     d.config(fontsize=12)
     # --- Inputs ---
     A = d.add(elm.Dot(open=True).label('A', 'left')).left()
