@@ -611,15 +611,25 @@ class CircuitBuilder:
         """
         return self._build(two_level_terms=pos_terms, inner="OR", outer="AND", output_label=output_label)
 
+    @staticmethod
+    def _midline_y(points_top_to_bottom):
+        ys = [p[1] for p in points_top_to_bottom]
+        n = len(ys)
+        if n == 0:
+            return 0.0
+        if n % 2 == 1:
+            return ys[n // 2]
+        # even: average the two middle
+        return 0.5 * (ys[n // 2 - 1] + ys[n // 2])
+
     def _build(self, two_level_terms, inner, outer, output_label="F"):
         group = VGroup()
 
-        # Term gates (column)
-        # term_gates = VGroup()
-        term_outputs = []
+        gate_map = {}  # e.g. "t0" -> gate/term mob
+        wire_map = {}  # e.g. "t0" -> wire from term -> final
         term_mobs = VGroup()
 
-        for t_i, term in enumerate(two_level_terms):
+        for idx, term in enumerate(two_level_terms):
             # y = self.y_top - t_i * self.term_vgap
             leads = [self._literal_tex(v, val) for v, val in term]
 
@@ -638,6 +648,7 @@ class CircuitBuilder:
                     term_mob = OrGate(leads=leads)
 
             term_mob.scale(self.gate_scale)
+            gate_map[idx] = term_mob
             term_mobs.add(term_mob)
         group.add(term_mobs)
 
@@ -652,7 +663,7 @@ class CircuitBuilder:
         # Final gate (combiner)
         if outer == "OR":
             final_gate = OrGate(leads=[None] * len(two_level_terms),
-                                output_label=output_label).scale(2.0)
+                                output_label=output_label).scale(2.4*self.gate_scale)
         else:
             final_gate = AndGate(leads=[None] * len(two_level_terms), output_label=output_label)
 
@@ -665,19 +676,27 @@ class CircuitBuilder:
         wires = VGroup()
         # Wire term outputs into final gate inputs
         final_ins = final_gate.input_anchors()
-        final_ins = list(reversed(final_ins))
+        # final_ins = list(reversed(final_ins))
         x_mid = (self.x_term + self.x_out) / 2
         colors = [RED, BLUE, GREEN]
         # i=0
         term_outputs_sorted = sorted(term_outputs, key=lambda p: p[1], reverse=True)
         final_ins_sorted = sorted(final_gate.input_anchors(), key=lambda p: p[1], reverse=True)
 
+        mid_term_y = self._midline_y(term_outputs_sorted)
+        mid_pin_y = self._midline_y(final_ins_sorted)
+
+        final_gate.shift(UP * (mid_term_y - mid_pin_y))
+        # final_ins = final_gate.input_anchors()
+        final_ins_sorted = sorted(final_gate.input_anchors(), key=lambda p: p[1], reverse=True)
+        idx = 0
         for t_out, f_in in zip(term_outputs_sorted, final_ins_sorted, strict=False):
             p1 = np.array(t_out, dtype=float)
             p2 = np.array(f_in, dtype=float)
             wire = manhattan_wire(p1, p2, x_mid=x_mid, stroke_width=self.stroke_width)
             # wire.set_color(colors[i])
-            # i+=1
+            wire_map[idx] = wire
+            idx += 1
             wires.add(wire)
         group.add(wires)
 
@@ -687,11 +706,9 @@ class CircuitBuilder:
         # ]).set_color(YELLOW)
         # group.add(dbg_in_dots)
 
-        return group
         # Helpful handles
-        group.inputs = inputs_mob
-        group.term_gates = term_gates
+        group.gates = gate_map
+        group.wires = wire_map
         group.final_gate = final_gate
-        group.wires = wires
 
         return group
