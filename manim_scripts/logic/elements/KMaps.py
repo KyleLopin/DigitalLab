@@ -694,7 +694,7 @@ class KarnaughMap(VGroup):
         w = right - left
         h = top - bottom
         r = min(r, w / 2, h / 2)
-
+        eps = 0.01
         # Corner arc centers
         cul = np.array([left + r/2, top - r/2, 0])
         cur = np.array([right - r/2, top - r/2, 0])
@@ -703,15 +703,15 @@ class KarnaughMap(VGroup):
 
         # Helpful endpoints of straight segments
         # (they stop r short of the corners so arcs can connect)
-        top_L = np.array([left + r, top, 0])
-        top_R = np.array([right - r, top, 0])
-        bot_L = np.array([left + r, bottom, 0])
-        bot_R = np.array([right - r, bottom, 0])
+        top_L = np.array([left + r-eps, top, 0])
+        top_R = np.array([right - r+eps, top, 0])
+        bot_L = np.array([left + r-eps, bottom, 0])
+        bot_R = np.array([right - r+eps, bottom, 0])
 
-        left_T = np.array([left, top - r, 0])
-        left_B = np.array([left, bottom + r, 0])
-        right_T = np.array([right, top - r, 0])
-        right_B = np.array([right, bottom + r, 0])
+        left_T = np.array([left, top - r+eps, 0])
+        left_B = np.array([left, bottom + r-eps, 0])
+        right_T = np.array([right, top - r+eps, 0])
+        right_B = np.array([right, bottom + r-eps, 0])
 
         # Corner arcs (quarter-circles)
         arc_ul = Arc(radius=r, start_angle=PI / 2, angle=PI / 2).move_to(cul)
@@ -733,9 +733,18 @@ class KarnaughMap(VGroup):
 
         # Remove the open side + its adjacent corner arcs
         if open_edge == "top":
-            parts.remove(top_line, arc_ul, arc_ur)
-            parts.add(Line(left_T,  np.array([left_T[0],  map_top, 0])))
-            parts.add(Line(right_T, np.array([right_T[0], map_top, 0])))
+            parts = VGroup(
+                # side lines + bottom + bottom arcs + wrap extensions upward
+                Line(left_B, left_T),
+                Line(right_B, right_T),
+                arc_dl, arc_dr,
+                Line(bot_L, bot_R),
+                Line(left_T, np.array([left_T[0], map_top, 0])),
+                Line(right_T, np.array([right_T[0], map_top, 0])),
+            )
+            # parts.remove(top_line, arc_ul, arc_ur)
+            # parts.add(Line(left_T,  np.array([left_T[0],  map_top, 0])))
+            # parts.add(Line(right_T, np.array([right_T[0], map_top, 0])))
         elif open_edge == "bottom":
             parts.remove(bottom_line, arc_dl, arc_dr)
             parts.add(Line(left_B, np.array([left_B[0], map_bottom, 0])))
@@ -769,7 +778,6 @@ class KarnaughMap(VGroup):
             raise ValueError(f"open_edge must be 'top','bottom','left','right', 'ul', .\n{open_edge} is not valid")
 
         parts.set_stroke(color=color, width=stroke_width)
-        parts.set_fill(opacity=0)
         return parts
 
     def _open_cell_outline(
