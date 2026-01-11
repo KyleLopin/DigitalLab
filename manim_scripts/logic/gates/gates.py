@@ -221,6 +221,8 @@ class OrGate(VGroup):
         leads = kwargs.pop("leads", None)
         output_label = kwargs.pop("output_label", None)
         super().__init__(**kwargs)
+        self.input_labels = VGroup()
+        self.input_leads = VGroup()
         inputnots = set(inputnots or [])
 
         # If leads provided, override inputs
@@ -287,17 +289,8 @@ class OrGate(VGroup):
         else:
             out_start = np.array([tip, 0.0, 0.0])
 
-        # Input spacing dy (schemdraw rules)
-        # if inputs == 2:
-        #     dy = gateh * 0.5
-        # elif inputs == 3:
-        #     dy = gateh * 0.33
-        # else:
-        #     dy = gateh * 0.4
-        #     backlen = dy * (inputs - 1)
-
         # ---- Input spacing dy (fit pins inside gate height) ----
-        # Base dy preference (your old behavior)
+        # Base dy preference
         if inputs == 2:
             dy_base = gateh * 0.5
         elif inputs == 3:
@@ -328,13 +321,16 @@ class OrGate(VGroup):
                 ib = Circle(radius=notbubble).set_stroke(width=stroke_width)
                 ib.move_to(np.array([xback - notbubble, y, 0.0]))
                 self.add(ib)
-                self.add(Line(np.array([0.0, y, 0.0]),
-                              np.array([xback - notbubble * 2, y, 0.0])).set_stroke(width=stroke_width))
+                lead = Line(np.array([0.0, y, 0.0]),
+                            np.array([xback - notbubble * 2, y, 0.0])).set_stroke(width=stroke_width)
                 # endpt = np.array([xback - notbubble * 2, y, 0.0])
             else:
-                self.add(Line(np.array([0.0, y, 0.0]),
-                              np.array([xback, y, 0.0])).set_stroke(width=stroke_width))
+                lead = Line(np.array([0.0, y, 0.0]),
+                              np.array([xback, y, 0.0])).set_stroke(width=stroke_width)
                 # endpt = np.array([xback, y, 0.0])
+            self.input_leads.add(lead)
+            self.add(lead)
+
             p_left = np.array([0.0, y, 0.0])  # back of lead (leftmost)
             # pin at the gate input point (x=0)
             _pin(f"in{in_num}", np.array([0.0, y, 0.0]))
@@ -345,6 +341,7 @@ class OrGate(VGroup):
                 lab = label_cls(str(lead_text), **label_kwargs).scale(label_scale)
                 lab.next_to(p_left, LEFT, buff=label_buff)
                 self.add(lab)
+                self.input_labels.add(lab)
 
         # Extended back for large number of inputs
         # if inputs > 3:
@@ -535,7 +532,8 @@ class DegenerateTerm(VGroup):
     A 1-literal 'term' that skips an inner gate.
     Draws a label and a short stub; exposes get_out() like your gates.
     """
-    def __init__(self, literal_tex: str, stub_len=0.7, stroke_width=3, label_scale=1.2, **kwargs):
+    def __init__(self, literal_tex: str, stub_len=0.7,
+                 stroke_width=3, label_scale=1.2, label_buff=0.15, **kwargs):
         super().__init__(**kwargs)
 
         self.label = MathTex(literal_tex).scale(label_scale)
@@ -544,7 +542,7 @@ class DegenerateTerm(VGroup):
         self.stub = Line(ORIGIN, RIGHT * stub_len).set_stroke(width=stroke_width)
 
         # arrange label + stub as a small block
-        self.label.next_to(self.stub, LEFT, buff=0.15)
+        self.label.next_to(self.stub, LEFT, buff=label_buff)
         self.add(self.label, self.stub)
 
         # live output pin so it moves with transforms
@@ -571,6 +569,8 @@ class CircuitBuilder:
         y_top=2.5,
         term_vgap=2.4,
         in_vgap=0.3,
+        degenerate_stub_len=0.25,  # shorter wires when term has 1 literal
+        degenerate_gap=0.15,
     ):
         self.var_order = list(var_order)
         self.gate_scale = gate_scale
@@ -581,6 +581,8 @@ class CircuitBuilder:
         self.y_top = y_top
         self.term_vgap = term_vgap
         self.in_vgap = in_vgap
+        self.degenerate_stub_len = degenerate_stub_len
+        self.degenerate_gap = degenerate_gap
 
     def _literal_tex(self, var, val):
         # val==1 -> A, val==0 -> \overline{A}
@@ -597,7 +599,10 @@ class CircuitBuilder:
             anchors[v] = t.get_right()
         return inputs, anchors
 
-    def build_sop(self, sop_terms, output_label="F"):
+    def build_sop(self, sop_terms, output_label="F",
+                  *,
+                  degenerate_stub_len=0.35,
+                  degenerate_label_buff=0.10, **kwargs):
         """
         sop_terms: list of terms, each term is list of (var, val) where val 1=non-inverted, 0=inverted.
         Builds: OR of AND terms.
@@ -622,7 +627,10 @@ class CircuitBuilder:
         # even: average the two middle
         return 0.5 * (ys[n // 2 - 1] + ys[n // 2])
 
-    def _build(self, two_level_terms, inner, outer, output_label="F"):
+    def _build(self, two_level_terms, inner, outer, output_label="F",
+               degenerate_stub_len=0.35,
+               degenerate_label_buff=0.10, **kwargs
+               ):
         group = VGroup()
 
         gate_map = {}  # e.g. "t0" -> gate/term mob
@@ -637,7 +645,8 @@ class CircuitBuilder:
             if len(term) == 1:  # degenerate: single literal, skip inner gate
                 term_mob = DegenerateTerm(
                     literal_tex=leads[0],
-                    stub_len=0.7,
+                    stub_len=degenerate_stub_len,
+                    label_buff=degenerate_label_buff,
                     stroke_width=self.stroke_width,
                     label_scale=1.2,
                 )
