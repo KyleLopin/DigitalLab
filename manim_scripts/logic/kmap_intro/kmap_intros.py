@@ -12,6 +12,14 @@ __author__ = "Kyle Vitautas Lopin"
 
 # installed libraries
 from manim import *
+import sys
+from pathlib import Path
+
+from typing_extensions import runtime
+
+MANIM_SCRIPTS_DIR = Path(__file__).resolve().parents[2]  # .../manim_scripts
+sys.path.insert(0, str(MANIM_SCRIPTS_DIR))
+
 
 # local files
 from helpers.timing_helpers import TimingHelpers
