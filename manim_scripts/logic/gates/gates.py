@@ -379,6 +379,9 @@ class OrGate(VGroup):
         0-based, top-to-bottom.
         Your pins are named inN..in1 (top is inN).
         """
+        if type(i) == str:
+            raise ValueError("To get the input of the Or gate, pass in i as a "
+                             "integer of the number it is of the input, not a string")
         name = f"in{self.inputs - i}"
         return self._pins[name].get_center()
 
