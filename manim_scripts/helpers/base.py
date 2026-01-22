@@ -145,7 +145,7 @@ class IntermissionSlides:
                   wait_to: str = "",
                   ):
         """Return animations to highlight bullet `idx` WITHOUT touching self.i."""
-        anims = []
+        anims = [self._slide[0].animate.set_opacity(dim_opacity).set_color(WHITE)]
         for j, m in enumerate(self.items):
             if j == idx:
                 anims += [
@@ -165,9 +165,10 @@ class IntermissionSlides:
         scene.play(*anims, run_time=1)
         if wait_to:
             try:
-                scene.wait_to(TIMES["highlight OR point"], self._i-1)  # self._i already incremented
+                scene.wait_to(wait_to, self._i)  # self._i only as this does not increment
+
             except Exception as e:
-                print(f"wait_to should be in TIMES dict got: {e}")
+                raise KeyError(f"wait_to should be in TIMES dict got: {e}")
 
         # remove _slide and FadeOut the cover which is same as FadeIn old scene
         scene.play(FadeOut(self._slide), run_time=fade_rt)
