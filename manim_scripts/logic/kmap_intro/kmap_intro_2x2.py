@@ -18,13 +18,16 @@ from manim_studio import LiveScene
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
+# HERE = Path(__file__).resolve().parent
+# if str(HERE) not in sys.path:
+#     sys.path.insert(0, str(HERE))
+MANIM_SCRIPTS_DIR = Path(__file__).resolve().parents[2]  # .../manim_scripts
+sys.path.insert(0, str(MANIM_SCRIPTS_DIR))
+
 
 # local files
 import context
-from helpers.anim_helpers import (pulse)
+from helpers.anim_helpers import pulse
 from elements.TruthTable import TruthTable
 from elements.KMaps import KarnaughMap
 from gates.gates import *
@@ -42,7 +45,12 @@ text_font = "Monaco"
 fancy_font = "Noteworthy"
 header1_size = 38
 header2_size = 32
-SET_CUE = True
+IMPLICANT_A_COLOR = RED
+IMPLICANT_AB_COLOR = GREEN
+IMPLICANT_BNOT_COLOR = GREEN
+
+PRODUCTION = True
+SET_CUE = False
 
 mono = TexTemplate()
 mono.add_to_preamble(r"\usepackage{inconsolata}")  # nice mono font
@@ -113,68 +121,22 @@ def circuit_two_ands_into_or(
     return circuit
 
 
-TIMES = {"tt_intro": 10,
-         # "tt_end": 25,
-         "KMap1_start": 15,
-         "kmap_vars": 20,
-         "kmap_labels": 25,
-         "add AB00": 30,
-         "move_minterms": [33, 36, 39, 42],
-         # "explain_implicants": 66,
-         "explain_implicants": [55, 58, 61, 64, 67, 70, 83, 86],
-         "implicants": [72],
-         "circuit minTerm 1": 76,
-         # "implicant ab 1 start": 25,
-         "intermissions": [82, 110, 140, 170, 200],
-         "intermission ends": [92, 122, 135, 182, 210],
+TIMES = {"KMap": [41, 45, 48.5, 56],
+         "move_minterms": [71, 72, 76.3, 77.5, 83, 92, 96, 102],
+         "explain_implicants": [121, 125, 131.5, 132.5, 145, 146,
+                                149, 152, 162],
 
-         "add minTerm3": 95,
+         "intermissions": [177, 263, 309, 383, 458, 522],
+         "intermission ends": [200, 277, 321, 398, 466, 541],
 
-         # "explain ab' 10": 89,
+         "example 2": [210, 215, 244, 244, 244, 253,
+                       282, 290, 294, 339, 344,
+                       350, 353, 373, 373],
+         "simplify 1": [94, 96, 98, 101],
 
-         "implicant ab 1 end": 92,
-
-         "add implicant 2": 98,
-         "fade out implicant 2": 110,
-         "show non prime eqn": 104,
-         "show non prime circuit": 105,
-         "prime implicant1 label": 107,
-         "simplify 1": [110, 115, 118, 121],
-
-         "video plug1": 138,
-         "larger implicant": 139,
-
-         "pulse ab'": 158,
-         "pulse ab": 160,
-         "pulse x=a1": 162,
-         "pulse x=a": 165,
-
-         "pulse b0": 168,
-         "pulse b1": 169,
-
-         "pulse (b+b')": 178,
-
-         "add minterm 0":190,
-         "add implicant m0": 192,
-
-         "add implicant a'b'": 194,
-
-         "add prime implicant 2": 196,
-
-         "pulse B 0": 200,
-         "pulse A 01": 204,
-
-         "intro l-shape": 206,
-         "explain l-shape": 206,
-         "end l-shape": 208,
-
-         "explain prime implicants 2": 210,
-         "explain implicant expansion": 212,
-         "explain prime implicant 2-2": 216,
-         "add back implicant A": 220,
-         "add full eqn": 225,
-         "highlight OR point": 228,
-         "add full circuit": 230,
+         "example 3": [405, 414, 417, 428, 432, 439, 442, 475,
+                       480, 483, 485, 492, 512],
+         "end": [518, 545],
          }
 
 TEXT_SCALE = 32
@@ -184,21 +146,25 @@ EQ_FONTSIZE = 64
 KMAP_POINTS = [  # used for IntermissionsSlide
     "Rule 1)|Each implicant becomes an AND term",
     "Rule 2)|The final Boolean function is the OR of all required implicants\n(Sum-of-Products, SOP)",
-    "Rule 3)|Implicant sizes are powers of 2, e.g.:\n1×1, 1×2, 2×1, 2×2, 2×4, 4×2, 4×4, etc.",
+    "Rule 3)|Implicant sizes can be powers of 2, e.g.:\n1×1, 1×2, 2×1, 2×2, 2×4, 4×2, 4×4, etc.",
     "Rule 4)|Prime implicants are the largest possible valid implicants",
     "Rule 5)|A single 1 can be grouped into multiple implicants",
 ]
-
-PRODUCTION = True
 
 
 class KMap2VarInstruct(KMapBase, TimingHelpers):
     def construct(self):
         # region setup
+        self.next_section("setup")
         if not PRODUCTION:
             self.next_section(skip_animations=True)
         wm = self.add_watermark()
         self.setup()
+        # add audio
+        self.add_sound(
+            "media/audio/KMap_2Var_instruct.wav",
+            time_offset=0,
+        )
         Text.set_default(font="Menlo")  # for KMaps to work properly
 
         # Set up the intermission slides
@@ -208,47 +174,48 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
                                           exclude=[wm],)
         # attach times
         self.attach_times(TIMES)
-        # endregion setup
 
-        # region Intro
         parts_label, example_label = build_handoff(2, 1)
         self.add(parts_label, example_label)
+        # endregion setup
 
-        # region Part 1 intro
-
-        # endregion Part 1 intro
-        # endregion Intro
+        # Intro is in seperate video, this starts at the example phase
 
         # region truth table
+        self.next_section("truth table")
         truth_table = TruthTable(inputs=["A", "B"],
             outputs=["x"], minterms=[2], scale=3)
 
         self.play(truth_table.write_all(), run_time=5)
 
-        self.wait_to("tt_intro")
-
-        self.play(
-            truth_table.animate.scale(0.7).to_corner(UR, buff=1.0).shift(0.3*UP),
-            run_time=1.0
-        )
         # endregion truth table
-
+        self.next_section("kmap")
         # region kmap
+
         kmap_2x2_1 = KarnaughMap(num_vars=2,
                                  var_names=["A", "B"],
                                  stroke_width=4)
         kmap_2x2_1.shift(LEFT*1.9).scale(1.5)
         # self.play(kmap_2x2_1.write_all(run_time=2.0))
+
+        self.wait_to("KMap", 0)
+        self.play(
+            truth_table.animate.scale(0.7).to_corner(UR, buff=1.0).shift(0.3 * UP),
+            run_time=1.0
+        )
+        self.wait_to("KMap", 1)
         self.play(FadeIn(kmap_2x2_1.cells_group))
-        self.wait_to("KMap1_start")
+
 
         # draw kmaps A and B to link
+        self.wait_to("KMap", 2)
         self.play(kmap_2x2_1.write("vars"), run_time=2)
-        self.wait_to("kmap_vars")
+
 
         # draw kmaps A and B to link
+        self.wait_to("KMap", 3)
         self.play(kmap_2x2_1.write("labels"), run_time=2)
-        self.wait_to("kmap_labels")
+
         # endregion kmap
 
         # region helper functions
@@ -288,15 +255,17 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
 
         # endregion helper functions
 
+        self.next_section("map")
         # region map tt to kmap
+
         # highlight A 0 on truth table then K-Map
         # first time running, so figure out the loop later
-        self.wait_to("add AB00")
         items = get_var_digits("A", 0, (0, 0))
         anims = [pulse(m, scale=1.5, run_time=0.8) for m in items]
+        kmap_a0_anims = anims[2:]
+        self.wait_to("move_minterms", 0)
         for m in items:
             m.set_color(BLUE)
-        # self.play(a_a0_tt.animate.scale(2))
         self.play(*anims)
 
         # highlight A 0 on truth table then K-Map
@@ -304,7 +273,8 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         anims = [pulse(m, scale=1.5, run_time=0.8) for m in items]
         for m in items:
             m.set_color(YELLOW)
-        # self.play(a_a0_tt.animate.scale(2))
+        kmap_b0_anims = anims[2:]
+        self.wait_to("move_minterms", 1)
         self.play(*anims)
 
         # move the 0 in minterm 0 to the KMap
@@ -323,35 +293,38 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         tt_cells1.append(tt_cell_min0)
 
         # animate copy to the kmap location
-        self.play(tt_cell_copy.animate.move_to(k_map_cell_min0.get_center()), run_time=2)
-
-        self.wait_to("move_minterms", 0)
+        self.wait_to("move_minterms", 2)
+        self.play(*kmap_a0_anims)
+        self.wait_to("move_minterms", 3)
+        self.play(*kmap_b0_anims)
+        self.play(tt_cell_copy.animate.move_to(k_map_cell_min0.get_center()),
+                  run_time=3)
 
         ab_states = [(0, 0), (0, 1), (1, 0), (1, 1)]
         minterm_colors = [ORANGE, TEAL_B, PURPLE, GREEN_C]
         kmap_values = {}
         kmap_values[0] = tt_cell_copy
+        keepers = []
         for i in range(1, 4):
-            self.wait_to("move_minterms", i)
+            self.wait_to("move_minterms", i+3)
             state_a, state_b = ab_states[i]
             items = get_var_digits("A", state_a, (i, 0))
-            anims = [pulse(m, scale=1.5, run_time=0.8) for m in items]
+            anims = [pulse(m, scale=1.5, run_time=1) for m in items]
             for m in items:
                 m.set_color(BLUE)
             # self.play(a_a0_tt.animate.scale(2))
             self.play(*anims)
-            self.wait(2)
+            keepers = anims[2:].copy()
 
             # highlight A 0 on truth table then K-Map
 
             items = get_var_digits("B", state_b, (i, 1))
-            anims = [pulse(m, scale=1.5, run_time=0.8) for m in items]
+            anims = [pulse(m, scale=1.5, run_time=1) for m in items]
             for m in items:
                 m.set_color(YELLOW)
             # self.play(a_a0_tt.animate.scale(2))
             self.play(*anims)
-            self.wait(2)
-
+            keepers.extend(anims[2:].copy())
             # move the minterm in truth table to the minTerm on KMap
             tt_cell_min = truth_table.get_cell(row=i, col=2)
             k_map_cell_min, _ = kmap_2x2_1.get_cell_from_minterm(i)
@@ -367,18 +340,17 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
             kmap_values[i] = tt_cell_copy
             # animate copy to the kmap location
             self.play(tt_cell_copy.animate.move_to(k_map_cell_min.get_center()), run_time=2)
+        self.wait_to("move_minterms", 7)
+        self.play(*keepers[:2])
+        self.play(*keepers[2:])
         # endregion map tt to kmap
-
+        self.next_section("implicants_1")
         # region implicants 1
-        self.wait_to("explain_implicants", 0)
+
         # Make implicant / prime implicant
-        implicant1 = kmap_2x2_1.highlight_group([2], color=RED,
+        implicant1 = kmap_2x2_1.highlight_group([2], color=IMPLICANT_A_COLOR,
                                                stroke_width=8, buff=-.2)
-        self.play(FadeIn(implicant1), run_time=2)
-        self.wait_to("implicants", 0)
 
-
-        self.wait_to("explain_implicants", 1)
         # implicant1_label = MathTex(r"\text{Implicant: } A\overline{B}", font_size=54)
         implicant1_label = MathTex(
             r"\text{Implicant: }", r"A", "\\cdot", r"\overline{B}",
@@ -390,40 +362,46 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
             implicant1.get_corner(UR),
             stroke_width=5
         )
+        imp1_grp = VGroup(implicant1, implicant1_label, connector)
+        self.wait_to("explain_implicants", 0)
+        self.play(FadeIn(implicant1), run_time=2)
+
+        self.wait_to("explain_implicants", 0)
         self.play(
             Write(implicant1_label[0]),
             Create(connector),
             run_time=1.2
         )
-        self.wait_to("explain_implicants", 1)
+
 
         # pulse A is 1 show A
         # looks dumb but its easier to not be DRY sometimes
         ab_state = (1, 0)
         items = get_kmap_var_digit("A", ab_state[0])
-        anims = [pulse(m, scale=1.5, run_time=1) for m in items]
+        anims = [pulse(m, scale=1.5, run_time=0.8) for m in items]
         implicant1_label[1].set_color(BLUE)
         anims.append(Write(implicant1_label[1], run_time=2))
-        self.play(*anims)
         self.wait_to("explain_implicants", 2)
+        self.play(*anims)
 
         items = get_kmap_var_digit("B", ab_state[1])
         anims = [pulse(m, scale=1.5, run_time=0.8) for m in items]
         implicant1_label[3].set_color(YELLOW)
         anims.append(Write(implicant1_label[2], run_time=2))
         anims.append(Write(implicant1_label[3], run_time=2))
-        self.play(*anims)
         self.wait_to("explain_implicants", 3)
+        self.play(*anims)
 
         self.explain_implicant = MathTex("1", "\\cdot", r"\overline{0}", font_size=54)
         self.explain_implicant.scale(
             implicant1_label.get_height() / self.explain_implicant.get_height())
         self.explain_implicant.next_to(implicant1_label, DOWN, buff=0.2)
         self.explain_implicant.align_to(implicant1_label, RIGHT).shift(0.06*LEFT)
-        self.play(self.explain_implicant[0].animate.set_color(BLUE))
-        self.play(Write(self.explain_implicant[1]))
-        self.play(self.explain_implicant[2].animate.set_color(YELLOW))
         self.wait_to("explain_implicants", 4)
+        self.play(self.explain_implicant[0].animate.set_color(BLUE),
+                  Write(self.explain_implicant[1]))
+        self.wait_to("explain_implicants", 5)
+        self.play(self.explain_implicant[2].animate.set_color(YELLOW))
 
         # explain 10' is 1*1
         explain_implicant2 = MathTex("1", "\\cdot", "1",
@@ -435,6 +413,7 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         explain_implicant2.next_to(self.explain_implicant, DOWN, buff=0.2)
         explain_implicant2.align_to(implicant1_label, RIGHT).shift(0.06*LEFT)
 
+        self.wait_to("explain_implicants", 6)
         self.play(Write(explain_implicant2[0]))
         self.play(Write(explain_implicant2[1]))
         self.play(Write(explain_implicant2[2]))
@@ -444,19 +423,20 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
                                  implicant1_label.get_height() / explain_implicant3.get_height())
         explain_implicant3.next_to(explain_implicant2, DOWN, buff=0.2)
         explain_implicant3.align_to(implicant1_label, RIGHT).shift(0.06 * LEFT)
+        self.wait_to("explain_implicants", 7)
         self.play(Write(explain_implicant3))
 
         # show the ab' AND gate circuit
         ab_circuit = AndGate(leads=(r"A", r"\overline{B}"), output_label="x").scale(0.7)
         ab_circuit.shift(2.3*RIGHT + 0.8*DOWN)
-        self.wait_to("circuit minTerm 1")
 
+        self.wait_to("explain_implicants", 8)
         self.play(Write(ab_circuit),
                   truth_table.animate.scale(0.75).to_corner(UR, buff=0.6),
                   run_time=2)
 
-
         # region show slide pt1
+        self.wait_to("intermissions", 0)
         intermission.show(self, wait_to="intermission ends")  # index: 0
         # endregion show slide pt1
 
@@ -465,10 +445,10 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
                           connector, self.explain_implicant, explain_implicant2,
                           explain_implicant3), run_time=1)
         # endregion implicants 1
-
+        self.next_section("implicant_2")
         # region implicant 2
         # region add minterm
-        self.wait_to("add minTerm3")
+
         # change the maxTerm3 to minTerm3 on the KMap and truth table
         tt_cell_min3 = truth_table.get_cell(row=3, col=2)
         anims = []
@@ -480,28 +460,32 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         example_label2 = Text(f"Example 2", font_size=26, font=S.text_font
                               ).move_to(example_label)
         anims.append(Transform(example_label, example_label2))
+        self.wait_to("example 2", 0)
         self.play(*anims)
         # endregion add minterm
         # region add implicant 2
-        self.wait_to("add implicant 2")
         # also change example number
 
-        implicant2 = kmap_2x2_1.highlight_group([3], color=RED,
-                                                stroke_width=8, buff=-.2)
+        implicant2 = kmap_2x2_1.highlight_group(
+            [3], color=IMPLICANT_AB_COLOR,
+            stroke_width=8, buff=-.2)
+        self.wait_to("example 2", 1)
         self.play(Create(implicant2), run_time=2)
-        implicant2_label = MathTex("Implicant: AB", font_size=54)
+        implicant2_label = MathTex("Implicant: AB",
+                                   font_size=54, color=IMPLICANT_AB_COLOR)
         implicant2_label.next_to(implicant2, DOWN, buff=1.4).shift(1.8 * RIGHT)
         connector = Line(
             implicant2_label.get_top(),
             implicant2.get_corner(DR),
-            stroke_width=5
+            stroke_width=5, color=IMPLICANT_AB_COLOR
         )
         self.play(
             Write(implicant2_label),
             Create(connector), run_time=1.2
         )
-        self.wait_to("fade out implicant 2")
+        self.wait_to("example 2", 2)
         self.play(FadeOut(implicant2_label, connector))
+        imp2_grp = VGroup(implicant2, implicant2_label, connector)
         # endregion add implicant 2
         # explain implicant 2
         # pulse both implicants and show circuit
@@ -522,6 +506,8 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
             substrings_to_isolate=[r"A\overline{B}", r"AB"],
             font_size=EQ_FONTSIZE,
         )
+        eq[1].set_color(IMPLICANT_A_COLOR)
+        eq[3].set_color(IMPLICANT_AB_COLOR)
         eq.to_edge(UP, buff=1.2).shift(1.0*RIGHT)
 
         term1 = eq.get_part_by_tex(r"A\overline{B}")
@@ -529,57 +515,70 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
 
         # 2) Connector lines (use always_redraw so they track if you move things later)
         conn_anotb = always_redraw(lambda:
-                              Line(term1.get_bottom(), implicant1.get_corner(UR), stroke_width=4)
+                              Line(term1.get_bottom(), implicant1.get_corner(UR),
+                                   stroke_width=4, color=IMPLICANT_A_COLOR)
                               )
         conn_ab = always_redraw(lambda:
-                              Line(term2.get_bottom(), implicant2.get_corner(UR), stroke_width=4)
+                              Line(term2.get_bottom(), implicant2.get_corner(UR),
+                                   stroke_width=4, color=IMPLICANT_AB_COLOR)
                               )
         # 3) Animate
-        self.wait_to("show non prime eqn")
+        self.wait_to("example 2", 3)
         self.play(Write(eq), run_time=1.2)
         self.play(Create(conn_anotb), Create(conn_ab), run_time=0.6)
         non_prime_txt = Text("Not optimal solution", font_size=38,
                              color=YELLOW_B)
         non_prime_txt.next_to(eq, UP, buff=0.3)
+        self.wait_to("example 2", 4)
         self.play(Write(non_prime_txt), run_time=1.2)
-        self.wait_to("show non prime circuit")
 
         truth_table.save_state()
-        ckt = circuit_two_ands_into_or(
-            and1_leads=(r"A", r"\overline{B}"),  # bar on top
-            and2_leads=(r"A", r"B"),
-            out_label=r"X"
-        ).scale(0.7)
-        ckt.shift(3.1*RIGHT + 0.3*DOWN)
+        ckt_builder = CircuitBuilder(var_order=["A", "B", "C", "D"])
+        inputs = [
+            [("A", 1), ("B", 0)],
+            [("A", 1), ("B", 1)],
+        ]
+        ckt = ckt_builder.build_sop(inputs, output_label="X")
+        # ckt = circuit_two_ands_into_or(
+        #     and1_leads=(r"A", r"\overline{B}"),  # bar on top
+        #     and2_leads=(r"A", r"B"),
+        #     out_label=r"X"
+        # )
+        ckt.scale(0.7)
+        ckt.shift(2.5*RIGHT + 2.7*DOWN)
+        ckt.gates[0].set_color(IMPLICANT_A_COLOR)
+        ckt.gates[1].set_color(IMPLICANT_AB_COLOR)
+        ckt.wires[0].set_color(IMPLICANT_A_COLOR)
+        ckt.wires[1].set_color(IMPLICANT_AB_COLOR)
+
+        self.wait_to("example 2", 5)
         self.play(Create(ckt),
                   # truth_table.animate.scale(0.75).to_corner(UR, buff=0.6),
                   run_time=2)
+
+        self.wait_to("intermissions", 1)
         intermission.show(self, wait_to="intermission ends")  # index: 1
         # add the implicants can be any size but prime impicants can not be expanded
 
         # MOVED: do implicant expansion first
-        prime_implicant1 = kmap_2x2_1.highlight_group([2, 3], color=RED,
-                                                      stroke_width=8, buff=-.2)
-        self.wait_to("prime implicant1 label")
+        prime_implicant1 = kmap_2x2_1.highlight_group(
+            [2, 3], color=IMPLICANT_A_COLOR, stroke_width=8, buff=-.2)
+        self.wait_to("example 2", 6)
         self.play(
             ReplacementTransform(implicant1.copy(), prime_implicant1),
             FadeOut(implicant2, implicant1),
+            FadeOut(eq),
             FadeOut(ckt, conn_anotb, conn_ab, non_prime_txt),
             run_time=1.4
         )
-        self.play(eq.animate.shift(0.8 * UP))
-        prime_implicant1_label = (Tex(r"\text{Prime Implicant}", font_size=EQ_FONTSIZE, color=RED)
-                                  .next_to(prime_implicant1, RIGHT, buff=0.35).shift(0.6*DOWN))
-        self.play(Write(prime_implicant1_label))
 
-        self.wait_to("simplify 1", 0)
 
         # First simplified equation
         eq1 = MathTex(
             r"X = A\left(B + \overline{B}\right)",
             font_size=EQ_FONTSIZE
         )
-        eq1.next_to(eq, DOWN, buff=0.15)
+        eq1.next_to(eq, DOWN, buff=-0.6)
 
         # Final simplified equation
         eq2 = MathTex(
@@ -587,56 +586,124 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
             font_size=EQ_FONTSIZE
         )
 
+        expand_imp = Paragraph(
+            "Implicants can be expanded.",
+            "Adjacent squares differ",
+            "by only 1 variable",
+            font_size=28,
+            color=LIGHTER_GRAY,
+            line_spacing=0.8,  # increase this
+            alignment="left",
+        )
+        expand_imp.shift(3.3*RIGHT)
+        power_text = Paragraph(
+            "Implicants are groups with",
+            "sizes of powers of 2:",
+            "i.e. 1, 2, 4, etc.",
+            font_size=28,
+            color=LIGHTER_GRAY,
+            line_spacing=0.8,  # increase this
+            alignment="left",
+        )
+        power_text.next_to(expand_imp, DOWN, buff=0.4)
+        self.wait_to("example 2", 7)
+        self.play(
+            FadeOut(truth_table),
+            Write(expand_imp), run_time=1.2)
+        self.wait_to("example 2", 8)
+        self.play(Write(power_text), run_time=1.2)
+
         # Final simplified equation
-        eq3 = MathTex(r"X = A", font_size=EQ_FONTSIZE, color=RED)
-        eq2.next_to(eq1, DOWN, buff=0.15)
+        eq3 = MathTex(r"X = A", font_size=EQ_FONTSIZE,
+                      color=IMPLICANT_A_COLOR)
+        eq3.next_to(eq, DOWN, buff=0.6).shift(0.3*RIGHT)
+        eq2.next_to(eq1, DOWN, buff=-0.6)
         eq2.align_to(eq1, RIGHT)
-        eq3.next_to(eq2, DOWN, buff=0.25)
-        eq3.align_to(eq2, RIGHT)
 
-        # Animate
-        self.play(Write(eq1), run_time=1.0)
-        self.wait_to("simplify 1", 1)
-        self.play(Write(eq2), run_time=1)
-        self.wait_to("simplify 1", 2)
-        self.play(Write(eq3), run_time=1)
-        self.wait_to("simplify 1", 3)
-
+        connector = Line(
+            prime_implicant1.get_right(),
+            eq3.get_corner(DL),
+            stroke_width=5, color=IMPLICANT_A_COLOR
+        )
+        self.wait_to("intermissions", 2)
         intermission.show(self, wait_to="intermission ends")  # index: 2
 
-        self.wait_to("pulse ab")
-        t1 = eq.get_part_by_tex(r"A\overline{B}")
-        t2 = eq.get_part_by_tex(r"AB")
+        # Animate
+        self.wait_to("example 2", 9)
+        self.play(FadeOut(expand_imp),
+                  FadeOut(power_text),
+                  FadeIn(truth_table), run_time=1.0)
+        self.play(Write(eq3), run_time=1)
+        self.play(Create(connector), run_time=1.0)
 
-        self.play(Indicate(t1))
-        self.wait_to("pulse ab")
-        self.play(Indicate(t2))
-        self.wait_to("pulse x=a1")
-        self.play(Indicate(eq2))
 
-        self.wait_to("pulse x=a")
-        self.play(Indicate(eq3), run_time=1)
+        prime_implicant1_label = (Tex(r"\text{Prime Implicant}",
+                                      font_size=EQ_FONTSIZE, color=IMPLICANT_A_COLOR)
+                                  .next_to(prime_implicant1, RIGHT, buff=0.35)
+                                  .shift(0.6 * DOWN))
+        self.wait_to("example 2", 10)
+        self.play(Write(prime_implicant1_label))
+
+
+        # self.wait_to("simplify 1", 0)
+        # self.play(eq.animate.shift(0.8 * UP),
+        #           Write(eq1),
+        #           run_time=1.0)
+        # self.wait_to("simplify 1", 1)
+        # self.play(Write(eq2), run_time=1)
+
+        # self.wait_to("pulse ab")
+        # t1 = eq.get_part_by_tex(r"A\overline{B}")
+        # t2 = eq.get_part_by_tex(r"AB")
+        #
+        # self.play(Indicate(t1))
+        # self.wait_to("pulse ab")
+        # self.play(Indicate(t2))
+        # self.wait_to("pulse x=a1")
+        # self.play(Indicate(eq2))
+        #
+        # self.wait_to("pulse x=a")
+        # self.play(Indicate(eq3), run_time=1)
+        self.wait_to("example 2", 11)
+        implicant1.set_color(WHITE)
+        implicant1_label.set_color(WHITE)
+        self.play(
+            Succession(
+                FadeIn(imp1_grp, run_time=0.5),
+                Wait(0.4),
+                FadeOut(imp1_grp, run_time=0.5),
+            )
+        )
+
+        self.wait_to("example 2", 12)
+        self.play(
+            Succession(
+                FadeIn(imp2_grp, run_time=0.5),
+                Wait(0.4),
+                FadeOut(imp2_grp, run_time=0.5),
+            )
+        )
 
         # A Prime implicant is the largest implicant that can be formed by grouping 1's together
         # As the implicant size is 1 column, and 2 rows, it spans B is 0 and B is 1
         # Pulse B=0 then B=1 (digits + restore each time)
-        self.wait_to("pulse b0")
+        self.wait_to("example 2", 13)
         pulse0, restore0 = kmap_2x2_1.pulse_var_digits("B", 0, color=YELLOW, scale_factor=1.4, run_time=0.25)
         self.play(pulse0)
         self.play(Restore(restore0), run_time=0.5)
 
-        self.wait_to("pulse b1")
+        self.wait_to("example 2", 14)
         pulse1, restore1 = kmap_2x2_1.pulse_var_digits("B", 1, color=YELLOW, scale_factor=1.4, run_time=0.25)
         self.play(pulse1)
         self.play(Restore(restore1), run_time=0.5)
 
+        self.wait_to("intermissions", 3)
         intermission.show(self, wait_to="intermission ends")  # index: 3
 
         # remove all the prime implicant 1 stuff
-        self.play(FadeOut(prime_implicant1_label, eq, eq1, eq2, eq3), run_time=1)
+        self.play(FadeOut(prime_implicant1_label, eq3, connector), run_time=1)
         # endregion implicant 2
-        # if not PRODUCTION:
-        #     self.next_section(skip_animations=True)
+        self.next_section("implicant_3")
         # region implcant 3
         # convert M0 to m0
         # change the maxTerm3 to minTerm3 on the KMap and truth table
@@ -650,38 +717,37 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         example_label3 = Text(f"Example 3", font_size=26, font=S.text_font
                               ).move_to(example_label2)
 
+        self.wait_to("example 3", 0)
         self.play(*anims,
                   Transform(example_label, example_label3),
                   run_time=1.5)
-        self.wait_to("add implicant m0")
 
-        implicant3 = kmap_2x2_1.highlight_group([0], color=ORANGE,
+        implicant3 = kmap_2x2_1.highlight_group([0], color=IMPLICANT_BNOT_COLOR,
                                                 stroke_width=8, buff=-.2)
+        self.wait_to("example 3", 1)
         self.play(Create(implicant3), run_time=2)
 
         implicant3_label = MathTex(r"Implicant: \overline{A}\,\overline{B}",
-                                   font_size=54, color=ORANGE)
+                                   font_size=54, color=IMPLICANT_BNOT_COLOR)
         implicant3_label.next_to(implicant3, UP, buff=1.1).shift(1.9 * LEFT)
 
         connector = Line(
             implicant3_label.get_bottom(),
             implicant3.get_corner(UL),
-            stroke_width=5, color=ORANGE,
+            stroke_width=5, color=IMPLICANT_BNOT_COLOR,
         )
+        self.wait_to("example 3", 2)
         self.play(
             Write(implicant3_label),
             Create(connector),
             run_time=1.2
         )
 
-        self.wait_to("add implicant a'b'")
-
         # make scene to explain implicant a'b' to b'
-        prime_implicant2 = kmap_2x2_1.highlight_group([0, 2], color=ORANGE,
+        prime_implicant2 = kmap_2x2_1.highlight_group([0, 2], color=IMPLICANT_BNOT_COLOR,
                                                       stroke_width=8, buff=-.2)
-        self.wait_to("add prime implicant 2")
         prime_implicant2_label = MathTex(r"\text{Prime Implicant:} \overline{B}",
-                                         font_size=54, color=ORANGE)
+                                         font_size=54, color=IMPLICANT_BNOT_COLOR)
         prime_implicant2_label.move_to(implicant3_label)
 
         # bring back later when explaining implicant expansion
@@ -694,9 +760,9 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
                                            stroke_width=8, buff=-.2)
         # self.play(Write(l_group), run_time=1)
         prime_implicant1.save_state()
-        self.wait_to("intro l-shape")
+        self.wait_to("example 3", 3)
         self.play(Transform(prime_implicant1, l_group), run_time=2)
-        self.wait_to("explain l-shape")
+
 
         l_shape_label1 = Text("Invalid implicant shape",
                               font_size=32, color=MAROON_C)
@@ -706,32 +772,32 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         l_shape_label2.next_to(l_shape_label1, DOWN, buff=.1)
         conn_l = Line(l_group.get_corner(UR), l_shape_label2.get_bottom(),
                       stroke_width=8, color=MAROON_C, buff=0.1,)
+        self.wait_to("example 3", 4)
         self.play(Write(l_shape_label1),
                   Write(l_shape_label2),
                   Write(conn_l), run_time=1)
-        self.wait_to("end l-shape")
 
+        self.wait_to("example 3", 5)
         self.play(Restore(prime_implicant1),
                   FadeOut(l_shape_label1, l_shape_label2, conn_l),)
         # Can not expand implicant to 2x2
 
 
         # endregion explain implicant shapes
-
+        self.wait_to("example 3", 6)
         self.play(Transform(implicant3, prime_implicant2),
                   # FadeOut(implicant3_label, connector),
                   Transform(implicant3_label, prime_implicant2_label),
                   run_time=1)
 
-        self.wait_to("explain prime implicants 2")
-
+        self.wait_to("intermissions", 4)
         intermission.show(self, wait_to="intermission ends")   # index: 4
 
         # explain you can do this because you can expand across
         # 1 variable, for b' you expand across A because A can
         # be 0 or 1
         # B = 0
-        self.wait_to("pulse B 0")
+        self.wait_to("example 3", 7)
         pulse_, digits = kmap_2x2_1.pulse_var_digits("B", 0, color=YELLOW, scale_factor=1.4, run_time=0.25)
         self.play(pulse_)
         self.play(Restore(digits), run_time=0.15)
@@ -741,7 +807,7 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
 
         # A = 1
         pulse1, digits1 = kmap_2x2_1.pulse_var_digits("A", 1, color=YELLOW, scale_factor=1.4, run_time=0.25)
-        self.wait_to("pulse A 01")
+        self.wait_to("example 3", 8)
         self.play(AnimationGroup(pulse0, pulse1, lag_ratio=0), run_time=0.35)
 
         self.play(
@@ -749,14 +815,14 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
             run_time=0.35
         )
 
-        self.wait_to("explain implicant expansion")
 
         rule_text = MathTex(
             r"\text{Doubling a dimension of an implicant}\\",
             r"\text{ removes one variable from the equation}",
             font_size=44
         ).shift(2.5*DOWN + RIGHT*0)
-        self.play(Write(rule_text))
+        # self.wait_to("example 3", 9)
+
 
         # explain a'b' to b' is removing a
 
@@ -764,52 +830,66 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         prime_state_box = implicant3.copy()
         prime_state_lbl = implicant3_label.copy()
 
-        self.wait_to("explain prime implicant 2-2")
+        self.wait_to("example 3", 10)
         self.play(Restore(implicant3),
                   Restore(implicant3_label), run_time=2)
-
+        self.play(Write(rule_text))
         # Forward to PRIME again
+        self.wait_to("example 3", 11)
         self.play(
             Transform(implicant3, prime_state_box),
             Transform(implicant3_label, prime_state_lbl),
             run_time=2
         )
-
         # add in A+B'
+
         self.play(FadeOut(rule_text))
 
         # prime_implicant2_label = MathTex("Prime Implicant: A",
         #                                  font_size=54, color=RED)
 
         prime_implicant1_label = MathTex(r"\text{Prime Implicant:} {A}",
-                                         font_size=54, color=RED)
+                                         font_size=54, color=IMPLICANT_A_COLOR)
         prime_implicant1_label.shift(2.2*RIGHT+1.2*DOWN)
 
         connector = Line(
             prime_implicant1_label.get_left(),
             prime_implicant1.get_right(),
-            stroke_width=5, color=RED, buff=0.1,
+            stroke_width=5, color=IMPLICANT_A_COLOR, buff=0.1,
         )
-        self.wait_to("add back implicant A")
+        self.wait_to("example 3", 12)
         self.play(Write(prime_implicant1_label), Write(connector) )
+        # endregion implcant 3
 
+        # region end
         final_eqn = MathTex(
             r"X = A + \overline{B}",
+            substrings_to_isolate=[r"A", r"\overline{B}"],
             font_size=EQ_FONTSIZE
         )
+        final_eqn[1].set_color(IMPLICANT_A_COLOR)
+        final_eqn[3].set_color(IMPLICANT_BNOT_COLOR)
         final_eqn.next_to(prime_implicant1_label, UP, buff=0.4)
-        self.wait_to("add full eqn")
+        self.wait_to("end", 0)
         self.play(Create(final_eqn), run_time=1)
 
-        intermission.highlight(self, 1, wait_to="highlight OR point")
+        self.wait_to("intermissions", 5)
+        intermission.highlight(self, 1, wait_to="intermission ends")
 
         ckt = OrGate(leads=[r"\overline{B}", "A"], output_label="X")
-        ckt.next_to(final_eqn, UP, buff=0.4).scale(1.5)
-        self.wait_to("add full circuit")
-        self.play(Create(ckt), run_time=1)
+        # labels are reversed
+        ckt.input_labels[0].set_color(IMPLICANT_BNOT_COLOR)
+        ckt.input_labels[1].set_color(IMPLICANT_A_COLOR)
+        ckt.input_leads[0].set_color(IMPLICANT_BNOT_COLOR)
+        ckt.input_leads[1].set_color(IMPLICANT_A_COLOR)
 
+        print("99: ", ckt.input_labels)
+        ckt.next_to(final_eqn, UP, buff=0.4).scale(1.5)
+        self.wait_to("end", 1)
+        self.play(Create(ckt), run_time=1)
+        # endregion end
         self.wait(2)
-        # endregion implcant 3
+
 
 
 class KMap2VarConclusion(KMapBase, TimingHelpers):
