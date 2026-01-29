@@ -574,6 +574,7 @@ class CircuitBuilder:
         in_vgap=0.3,
         degenerate_stub_len=0.25,  # shorter wires when term has 1 literal
         degenerate_gap=0.15,
+        degenerate_scale=1.4,
     ):
         self.var_order = list(var_order)
         self.gate_scale = gate_scale
@@ -586,6 +587,7 @@ class CircuitBuilder:
         self.in_vgap = in_vgap
         self.degenerate_stub_len = degenerate_stub_len
         self.degenerate_gap = degenerate_gap
+        self.degenerate_scale = degenerate_scale
 
     def _literal_tex(self, var, val):
         # val==1 -> A, val==0 -> \overline{A}
@@ -651,7 +653,7 @@ class CircuitBuilder:
                     stub_len=degenerate_stub_len,
                     label_buff=degenerate_label_buff,
                     stroke_width=self.stroke_width,
-                    label_scale=1.2,
+                    label_scale=self.degenerate_scale,
                 )
             else:
                 if inner == "AND":
