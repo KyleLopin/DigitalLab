@@ -58,7 +58,7 @@ class IntermissionSlides:
     # _i keeps track of which bullet points are shown
     _i: int = field(default=0, init=False, repr=False)
 
-    def _build_slide(self) -> VGroup:
+    def _build_slide(self, production=True) -> VGroup:
         """Create the slide and hide all bullets initially."""
         print(f"Building slide {self.title}")
         t = Text(self.title, font_size=self.title_size, weight=BOLD,
@@ -94,8 +94,11 @@ class IntermissionSlides:
             item.set_opacity(0)
 
         # Make an all black slide to hide the orignal slide to project new intermission slide on
+        scale = 0.8
+        if production:
+            scale = 1.0
         self.cover = Rectangle(width=config.frame_width,
-                          height=0.8 * config.frame_height
+                          height=scale * config.frame_height
                           ).set_fill(BLACK, 1).set_stroke(
             width=0).set_z_index(1000)
 
