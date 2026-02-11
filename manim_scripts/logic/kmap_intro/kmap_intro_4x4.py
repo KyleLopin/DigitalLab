@@ -9,6 +9,7 @@ __author__ = "Kyle Vitautas Lopin"
 
 # standard libraries
 import sys
+from importlib import import_module
 from pathlib import Path
 
 from typing_extensions import runtime
@@ -33,14 +34,19 @@ from manim import TexTemplate
 tpl = TexTemplate()
 tpl.add_to_preamble(r"\usepackage{amsmath}")  # for aligned + \text
 
-
-TIMES = {"tt": [2, 10],
-         "Add KMap": [15, 20, 25, 30, 32, 34, 36, 38, 40],
-         "imp 1": [45, 47, 50, 52, 54, 56],
-         "imp A": [60, 62, 64, 122, 126, 130, 135, 138],
-         "imp b'd'": [75, 80, 82, 84, 86, 145],
-         "imp bcd": [100, 105, 110, 112, 115, 120],
-         "final": [130, 135, 117, 120, 125, 130],
+KMAP_DELAYS = {1: 0, 2: 1, 3: 2, }
+TIMES = {"tt": [3.7, 25],
+         "Add KMap": [38.5, 45, 48.5, 54,
+                      74.5, 104.5, 118, 132],
+         # "KMap delays": [85, 90, 97],
+         "KMap delays": [85, 90, 97],
+         "imp 1": [162, 168, 187, 194, 209, 54, 56],
+         "imp A": [212.5, 229, 237, 244, 253, 259.5, 270, 276],
+         "imp b'd'": [290.3, 305, 314, 322, 328,
+                      343, 347, 352, 358],
+         "imp bcd": [364, 369, 377, 396],
+         "final": [386, 394],
+         "fadeout": 398,
          }
 MAP_TIMING = {}
 
@@ -73,6 +79,11 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
         if not PRODUCTION:
             self.next_section(skip_animations=True)
         self.setup()  # for Manim?
+        self.set_cue=False
+        self.add_sound(
+            "media/audio/KMap_4Var_instruct.wav",
+            time_offset=0,
+        )
         Text.set_default(font="Menlo")  # for KMaps graycode numbers to look proper
         wm = self.add_watermark()
 
@@ -131,15 +142,16 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
         self.wait_to("Add KMap", 1)
 
         self.play(Create(col_vars, run_time=2))
-        self.wait_to("Add KMap", 2)
 
         # make column gray code, then row
         gray_code_anims, gray_code_mobjs_group = kmap.write("labels", return_mobjects=True)
 
         col_gray_mobs = gray_code_mobjs_group[0]
+        self.wait_to("Add KMap", 2)
         self.play(FadeIn(*col_gray_mobs), run_time=2)
 
         row_gray_mobs = gray_code_mobjs_group[1]
+        self.wait_to("Add KMap", 3)
         self.play(FadeIn(*row_gray_mobs), run_time=2)
         # endregion KMap init
         # region map to KMap
@@ -155,7 +167,7 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
             _time = 2
             if i in MAP_TIMING:
                 _time = MAP_TIMING[i]
-            self.wait(_time)
+            # self.wait(_time)
             # show which input combination (a, bc) the term is in
             abcd = f"{i:0{4}b}"
             ab, cd = abcd[:2:], abcd[2:]
@@ -169,6 +181,12 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
             ab_items.append(truth_table.get_cell(row=i, col=0))  # A value
             ab_items.append(truth_table.get_cell(row=i, col=1))  # B value
             ab_items.append(col_vars)
+
+            if i % 4 == 0:
+                self.wait_to("Add KMap", i//4+4)
+            elif i in KMAP_DELAYS:
+                self.wait_to("KMap delays", KMAP_DELAYS[i])
+
             for m in ab_items:
                 m.set_color(BLUE)
             self.play(
@@ -201,7 +219,6 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
             )
 
             _term = truth_table.get_cell(row=i, col=4)  # last column
-            print(i, _color)
             _term.set_color(_color)
             term = _term.copy()
             term.set_z_index(10)  # put in front
@@ -233,12 +250,12 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
                                    ).arrange(DOWN, buff=0.15, aligned_edge=LEFT)
         imp_abncndn_label.next_to(imp_abncndn, RIGHT, buff=IMPLICANT_BUFF)
 
-        self.play(Create(imp_abncndn), run_time=1.0)
         self.wait_to("imp 1", 0)
+        self.play(Create(imp_abncndn), run_time=1.0)
 
-        self.play(Create(imp_abncndn_label), run_time=1.0)
         self.wait_to("imp 1", 1)
-
+        self.play(Create(imp_abncndn_label), run_time=1.0)
+        self.wait_to("imp 1", 2)
         # region all single imps
         single_imps = []
         for term in MINTERMS:
@@ -267,7 +284,7 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
             r"\end{aligned}"
         ).scale(0.95).shift(0.8*LEFT)
 
-        self.wait_to("imp 1", 2)
+        self.wait_to("imp 1", 3)
         self.play(FadeOut(kmap),
                   *[FadeOut(m) for m in single_imps],
                   *[FadeOut(m) for m in kmap_terms],
@@ -276,7 +293,7 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
                   Write(big_ugly),
                   run_time=2.0)
 
-        self.wait_to("imp 1", 3)
+        self.wait_to("imp 1", 4)
         self.play(FadeIn(kmap),
                   # *[FadeIn(m) for m in single_imps],
                   *[FadeIn(m) for m in kmap_terms],
@@ -509,7 +526,9 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
         prime_label_2.set_color(IMPLICANT_BNOTDNOT_COLOR)
         prime_label_2.move_to(label_copy)
 
-
+        imp_m0.save_state()
+        imp_m0_m2_bottom.save_state()
+        imp_m0_m2_eqn.save_state()
         self.wait_to("imp b'd'", 4)
         self.play(Transform(imp_m0, imp_corner_m0),
                   Transform(imp_m0_m2_bottom, imp_corner_m2),
@@ -517,9 +536,36 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
                   Create(imp_corner_m8),
                   Create(imp_corner_m10),
                   run_time=1.0)
+
+        imp_txt = Text("Larger implicants\nhave simplier\nBoolean equations\nand circuits",
+                       font=s.numbers_font, font_size=s.num_font_size+2)
+        imp_txt.next_to(imp_a_eqn, DOWN, buff=0.3
+                        ).align_to(imp_a_eqn, LEFT)
+
         self.wait_to("imp b'd'", 5)
-        self.play(TransformMatchingTex(label_copy, prime_label_2),
+        self.play(Write(imp_txt), run_time=1.0)
+
+        self.wait_to("imp b'd'", 6)
+        self.play(Restore(imp_m0),
+                  Restore(imp_m0_m2_bottom),
+                  Restore(imp_m0_m2_eqn),
+                  # TransformMatchingTex(imp_m0_eqn, imp_bndn_eqn),
+                  FadeOut(imp_corner_m8),
+                  FadeOut(imp_corner_m10),
                   run_time=1.0)
+
+        self.wait_to("imp b'd'", 7)
+        self.play(Transform(imp_m0, imp_corner_m0),
+                  Transform(imp_m0_m2_bottom, imp_corner_m2),
+                  TransformMatchingTex(imp_m0_m2_eqn, imp_bndn_eqn),
+                  Create(imp_corner_m8),
+                  Create(imp_corner_m10),
+                  run_time=1.0)
+
+        self.wait_to("imp b'd'", 8)
+        self.play(FadeOut(imp_txt),
+            TransformMatchingTex(label_copy, prime_label_2),
+            run_time=2.0)
 
         # endregion imp B'D'
 
@@ -530,6 +576,12 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
 
 
         self.wait_to("imp bcd", 0)
+        # print(kmap.get_cell_from_minterm(7))
+        m7 = kmap_terms[7]
+        anims = [pulse(m7, scale=2.0, run_time=2)]
+        self.play(*anims)
+
+        self.wait_to("imp bcd", 1)
         self.play(Create(imp_bcd))
 
         # implicant label
@@ -548,9 +600,17 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
         self.play(Write(imp_bcd_label),
                   Create(connector),
                   run_time=1.2)
-        self.wait_to("imp bcd", 0)
         self.play(FadeOut(connector),
                   run_time=1.2)
+
+        bcd_items = []
+        bcd_items.extend(kmap.get_var_digits("B", 1))
+        bcd_items.extend(kmap.get_var_digits("C", 1)[0])
+        bcd_items.extend(kmap.get_var_digits("D", 1)[1])
+        anims = [pulse(m, scale=1.8, run_time=1.3)
+                 for m in bcd_items]
+        self.wait_to("imp bcd", 2)
+        self.play(*anims)
 
         # endregion imp BCD
 
@@ -558,9 +618,7 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
         self.next_section("Running")
         # region final eqn
         # remove the prime implicant labels
-        self.play(FadeOut(prime_label_copy),
-                  FadeOut(prime_label_2),
-                  FadeOut(label_copy))
+
 
         # move the Kmap and stuff to make more room
         stuff_to_move = [kmap, imp_a, imp_bcd, imp_corner_m0, imp_corner_m2,
@@ -579,6 +637,9 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
 
         print(type(imp_a_eqn), type(final_eqn[1]))
         self.wait_to("final", 0)
+        self.play(FadeOut(prime_label_copy),
+                  FadeOut(prime_label_2),
+                  FadeOut(label_copy))
         self.remove(imp_m0_m2_top,
                     imp_m0_m2_bottom,
                     imp_abncndn,
@@ -623,6 +684,9 @@ class KMap4VarInstruct(KMapBase, TimingHelpers):
         # endregion circuit
 
         # endregion eqn and circuit
+
+        self.wait_to("fadeout")
+        self.play(FadeOut(Group(*self.mobjects)), run_time=1.0)
 
         print("Scene mobjects:")
         for mob in self.mobjects:

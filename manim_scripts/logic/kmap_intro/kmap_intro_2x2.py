@@ -39,6 +39,7 @@ from helpers.styles import KMAP_STYLE as S
 # get start elements
 from kmap_intros import build_handoff
 
+
 numbers_font = "Menlo"
 # text_font = "Felix Titling"
 text_font = "Monaco"
@@ -121,7 +122,8 @@ def circuit_two_ands_into_or(
     return circuit
 
 
-TIMES = {"KMap": [41, 45, 48.5, 56],
+TIMES = {"intro": [6, 9, 14, 19, 22, 24, 30, 32],
+         "KMap": [41, 45, 48.5, 56],
          "move_minterms": [71, 72, 76.3, 77.5, 83, 92, 96, 102],
          "explain_implicants": [121, 125, 131.5, 132.5, 145, 146,
                                 149, 152, 162],
@@ -137,6 +139,7 @@ TIMES = {"KMap": [41, 45, 48.5, 56],
          "example 3": [405, 414, 417, 428, 432, 439, 442, 475,
                        480, 483, 485, 492, 512],
          "end": [518, 545],
+         "fadeout": 560
          }
 
 TEXT_SCALE = 32
@@ -146,7 +149,9 @@ EQ_FONTSIZE = 64
 KMAP_POINTS = [  # used for IntermissionsSlide
     "Rule 1)|Each implicant becomes an AND term",
     "Rule 2)|The final Boolean function is the OR of all required implicants\n(Sum-of-Products, SOP)",
-    "Rule 3)|Implicant sizes can be powers of 2, e.g.:\n1×1, 1×2, 2×1, 2×2, 2×4, 4×2, 4×4, etc.",
+    # "Rule 3)|Implicant sizes can be powers of 2, e.g.:\n1×1, 1×2, 2×1, 2×2, 2×4, 4×2, 4×4, etc.",
+    "Rule 3)|Implicants are rectangular groups whose sizes are powers of 2, e.g.:\n1×1, 1×2, 2×1, 2×2, 2×4, 4×2, 4×4, etc.",
+
     "Rule 4)|Prime implicants are the largest possible valid implicants",
     "Rule 5)|A single 1 can be grouped into multiple implicants",
 ]
@@ -174,12 +179,14 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
                                           exclude=[wm],)
         # attach times
         self.attach_times(TIMES)
+        self.set_cue = SET_CUE
 
         parts_label, example_label = build_handoff(2, 1)
         self.add(parts_label, example_label)
         # endregion setup
 
         # Intro is in seperate video, this starts at the example phase
+        # NVM intros is on ttruth table slide
 
         # region truth table
         self.next_section("truth table")
@@ -187,6 +194,80 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
             outputs=["x"], minterms=[2], scale=3)
 
         self.play(truth_table.write_all(), run_time=5)
+
+        lines = [
+            "Create Karnaugh Map",
+            "Find Implicants",
+            "Solve Boolean Equation",
+            "Find Logic Circuit",
+        ]
+
+        steps = VGroup(*[
+            Text(s, font_size=36, font=text_font) for s in lines
+        ]).arrange(DOWN, aligned_edge=LEFT, buff=0.35)
+
+        steps.shift(3.2*LEFT)
+
+        # --- reveal line-by-line (fill in timing) ---
+        self.wait_to("intro", 0)
+        self.play(truth_table.animate.shift(2.2*RIGHT))
+        self.play(Write(steps[0]), run_time=1)
+        self.wait_to("intro", 1)
+        self.play(Write(steps[1]), run_time=1)
+        self.wait_to("intro", 2)
+        self.play(Write(steps[2]), run_time=1)
+        self.wait_to("intro", 3)
+        self.play(Write(steps[3]), run_time=1)
+
+        # --- fade out intro points ---
+        self.wait_to("intro", 4)
+        self.play(FadeOut(steps),
+                  truth_table.animate.shift(2.2 * LEFT),
+                  run_time=1)
+
+        # add input labels
+        input_label = Text("Inputs", font_size=54, font=text_font)
+        input_label.next_to(truth_table, LEFT).shift(2.2*UP+0.7*LEFT)
+        start = input_label.get_right()
+        end = truth_table.get_label("A").get_left()
+
+        v = end - start
+        u = v / np.linalg.norm(v)  # unit direction
+
+        pad = 0.12  # how much to pull back from each end
+
+        connector = Line(
+            start + u * pad,
+            end - u * pad,
+        )
+
+        self.wait_to("intro", 5)
+        self.play(Write(input_label),
+                  Create(connector), run_time=1.0)
+
+        output_label = Text("Output", font_size=54, font=text_font)
+        output_label.next_to(truth_table, RIGHT
+                             ).shift(2.4*UP+0.7*RIGHT)
+        start = output_label.get_left()
+        end = truth_table.get_label("x").get_right()
+
+        v = end - start
+        u = v / np.linalg.norm(v)  # unit direction
+
+        pad = 0.12  # how much to pull back from each end
+
+        connector2 = Line(
+            start + u * pad,
+            end - u * pad,
+        )
+        self.wait_to("intro", 6)
+        self.play(Write(output_label),
+                  Create(connector2), run_time=1.0)
+
+
+        self.wait_to("intro", 7)
+        self.play(FadeOut(connector, input_label,
+                          connector2, output_label))
 
         # endregion truth table
         self.next_section("kmap")
@@ -260,22 +341,22 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
 
         # highlight A 0 on truth table then K-Map
         # first time running, so figure out the loop later
-        items = get_var_digits("A", 0, (0, 0))
-        anims = [pulse(m, scale=1.5, run_time=0.8) for m in items]
+        a0_items = get_var_digits("A", 0, (0, 0))
+        anims = [pulse(m, scale=1.5, run_time=0.8) for m in a0_items]
         kmap_a0_anims = anims[2:]
         self.wait_to("move_minterms", 0)
-        for m in items:
+        for m in a0_items[:2]:
             m.set_color(BLUE)
-        self.play(*anims)
+        self.play(*anims[:2])
 
         # highlight A 0 on truth table then K-Map
-        items = get_var_digits("B", 0, (0, 1))
-        anims = [pulse(m, scale=1.5, run_time=0.8) for m in items]
-        for m in items:
+        b0_items = get_var_digits("B", 0, (0, 1))
+        anims = [pulse(m, scale=1.5, run_time=0.8) for m in b0_items]
+        for m in b0_items[:2]:
             m.set_color(YELLOW)
         kmap_b0_anims = anims[2:]
         self.wait_to("move_minterms", 1)
-        self.play(*anims)
+        self.play(*anims[:2])
 
         # move the 0 in minterm 0 to the KMap
         tt_cell_min0 = truth_table.get_cell(row=0, col=2)
@@ -294,12 +375,15 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
 
         # animate copy to the kmap location
         self.wait_to("move_minterms", 2)
+        for m in a0_items[2:]:
+            m.set_color(BLUE)
         self.play(*kmap_a0_anims)
         self.wait_to("move_minterms", 3)
+        for m in b0_items[2:]:
+            m.set_color(YELLOW)
         self.play(*kmap_b0_anims)
         self.play(tt_cell_copy.animate.move_to(k_map_cell_min0.get_center()),
                   run_time=3)
-
         ab_states = [(0, 0), (0, 1), (1, 0), (1, 1)]
         minterm_colors = [ORANGE, TEAL_B, PURPLE, GREEN_C]
         kmap_values = {}
@@ -888,8 +972,8 @@ class KMap2VarInstruct(KMapBase, TimingHelpers):
         self.wait_to("end", 1)
         self.play(Create(ckt), run_time=1)
         # endregion end
-        self.wait(2)
-
+        self.wait_to("fadeout")
+        self.play(FadeOut(Group(*self.mobjects)), run_time=1.0)
 
 
 class KMap2VarConclusion(KMapBase, TimingHelpers):
@@ -909,13 +993,11 @@ class KMap2VarConclusion(KMapBase, TimingHelpers):
 
     COVER_FRAC = 0.90  # top % of screen to black out
     LINE_SPACING = 0.9
-    times = {"write time": 3,
-             "fade out": 2}
+    times = {"write": [6.5, 17.9, 31],
+             "end": 42}
 
     @staticmethod
-    def make_hanging_item(
-            s: str,
-            *,
+    def make_hanging_item(s: str, *,
             sep: str = "|",
             font: str = "Avenir Next",
             label_size: int = 36,
@@ -939,6 +1021,12 @@ class KMap2VarConclusion(KMapBase, TimingHelpers):
 
     def construct(self):
         wm = self.add_watermark()
+        self.attach_times(self.times)
+        self.set_cue = SET_CUE
+        self.add_sound(
+            "media/audio/KMap_part1_conclusions.wav",
+            time_offset=0,
+        )
 
         # --- Slide content (your 3 teaching points) ---
         TITLE_FONT = "Avenir Next"
@@ -1001,18 +1089,203 @@ class KMap2VarConclusion(KMapBase, TimingHelpers):
         # --- Animate ---
         self.add(cover, slide)
 
-        self.play(FadeIn(title), run_time=self.times["write time"])
+        self.play(FadeIn(title), run_time=1.0)
 
-        for it in items:
-            it.set_opacity(1)
-            self.play(Write(it), run_time=self.times["write time"])
-            self.wait(0.4)
+        for i, it in enumerate(items):
+            self.wait_to("write", i)
+            # it.set_opacity(1)
+            # self.play(Write(it), run_time=1.0)
+            self.play(it.animate.set_opacity(1), run_time=1.0)
 
-        self.wait(1.5)
-        return
-        self.play(FadeOut(slide), run_time=self.times["fade out"])
+        self.wait_to("end")
+        self.play(FadeOut(slide), run_time=1.0)
         self.remove(cover, slide)
         self.wait(0.5)
+
+
+class KMapConclusion(KMapBase, TimingHelpers):
+    # --- TUNING KNOBS ---
+    TITLE_FONT = "Avenir Next"
+    BODY_FONT = "Palatino"
+
+    TITLE_SIZE = 50
+    LABEL_SIZE = 38  # "1)" / "2)" / "3)"
+    BODY_SIZE = 36  # main text
+    WM_SIZE = 24
+
+    ITEM_BUFF = 0.45  # vertical spacing between points
+    TITLE_BUFF = 0.60  # spacing between title and list
+    SLIDE_BUFF = 0.8  # spacing to top of screen
+    WIDTH_FRAC = 0.92  # fraction of frame width for slide
+
+    COVER_FRAC = 0.90  # top % of screen to black out
+    LINE_SPACING = 0.9
+    times = {"write": [4.2, 12, 19.8, 26.5, 34.5, 39],
+             "end": 53}
+
+    @staticmethod
+    def make_hanging_item(s: str, *,
+            sep: str = "|",
+            font: str = "Avenir Next",
+            label_size: int = 36,
+            body_size: int = 54,
+            label_buff: float = 0.25,
+            line_spacing: float = 0.9,
+            subline_buff: float = 0.10,  # spacing between line1 and line2
+    ) -> Mobject:
+        """Build a single 'LABEL|BODY' item with hanging indent for BODY newlines."""
+        if sep in s:
+            label_txt, body_txt = s.split(sep, 1)
+            label_txt = label_txt.strip()
+            body_txt = body_txt.strip()
+
+            lines = body_txt.split("\n", 1)
+            line1_txt = lines[0].strip()
+            line2_txt = lines[1].strip() if len(lines) > 1 else ""
+
+            label = Text(label_txt, font=font, font_size=label_size, weight="BOLD")
+            line1 = Text(line1_txt, font=font, font_size=body_size, line_spacing=line_spacing)
+
+            body_group = VGroup(line1)
+
+            if line2_txt:
+                line2 = Text(line2_txt, font=font, font_size=body_size, line_spacing=line_spacing)
+                body_group.add(line2)
+                body_group.arrange(DOWN, aligned_edge=LEFT, buff=subline_buff)
+
+                # handy handles
+                body_group.line1 = line1
+                body_group.line2 = line2
+            else:
+                body_group.line1 = line1
+                body_group.line2 = None
+
+            item = VGroup(label, body_group).arrange(RIGHT, buff=label_buff, aligned_edge=UP)
+
+            # handy handles on the item too
+            item.label = label
+            item.body = body_group
+            return item
+        return Text(s, font=font, font_size=body_size, line_spacing=line_spacing)
+
+    def construct(self):
+        wm = self.add_watermark()
+        self.add_sound(
+            "media/audio/KMap_final_conclusions.wav",
+            time_offset=0,
+        )
+        self.attach_times(self.times)
+        self.set_cue_flag = False
+        # self.add_sound(
+        #     "media/audio/KMap_part1_conclusions.wav",
+        #     time_offset=0,
+        # )
+
+        # --- Slide content (your 3 teaching points) ---
+        TITLE_FONT = "Avenir Next"
+        TEXT_FONT = "Palatino"  # try "Palatino", "Georgia", "Hoefler Text", etc.
+
+        bullet = "• "
+        points = [
+            f"{bullet}|K-maps use Gray code ordering.\n"
+            "Only one variable changes between adjacent cells",
+            f"{bullet}|Implicants are rectangular groups of 1’s.\n"
+            "Groups must be sizes of 2ⁿ (powers of two),\ne.g. 1×1, 1×2, 2×1, 2×2, 2x4, etc.",
+            f"{bullet}|K-maps wrap around at the edges.\n"
+            "Cells on opposite edges are adjacent\nand may be grouped together",
+
+            f"{bullet}|Prime implicants are the largest valid groups.\n"
+            "Produce simpler equations and smaller circuits",
+            f"{bullet}|Cells may be used in multiple implicants.\n"
+            "Overlapping groups are allowed\nif they lead to a simpler result",
+            f"{bullet}|Each implicant term becomes an AND term.\n"
+            "The final function is the OR of all required implicants\n(Sum-of-Products, SOP)",
+        ]
+
+        title = Text("Key points for Karnaugh Maps (Introduction)", font=TITLE_FONT,
+                     font_size=42, weight="BOLD")
+        title.to_corner(UL)
+
+        items = VGroup(*[
+            self.make_hanging_item(
+                p,
+                sep="|",
+                font=TEXT_FONT,
+                label_size=self.LABEL_SIZE,
+                body_size=self.BODY_SIZE,
+            )
+            for p in points
+        ]).arrange(DOWN, aligned_edge=LEFT, buff=self.ITEM_BUFF
+                   ).next_to(title, DOWN, buff=0.2
+                             ).align_to(title, LEFT)
+
+        # Hanging indent alignment: align all bodies to the same left x
+        bodies = VGroup(*[
+            it[1] for it in items
+            if isinstance(it, VGroup) and len(it) >= 2
+        ])
+        if len(bodies) > 0:
+            target_left_x = bodies[0].get_left()[0]
+            for b in bodies:
+                b.shift(RIGHT * (target_left_x - b.get_left()[0]))
+
+        # slide = VGroup(title, items).arrange(DOWN, buff=0.6, aligned_edge=LEFT)
+        # # slide.set_width(config.frame_width * self.WIDTH_FRAC)
+        # slide.to_edge(UP, buff=self.SLIDE_BUFF)
+        # slide.set_z_index(1001)
+
+        # Hide all bullet items initially (title stays)
+        for it in items:
+            it.set_opacity(0)
+
+        # Keep watermark above the cover (optional). If you prefer it under, remove these 2 lines.
+        wm.set_z_index(1100)
+
+        # --- Animate ---
+        # self.add(slide)
+
+        self.play(FadeIn(title), run_time=1.0)
+
+        ITEM_FADEIN = 0.6
+        print("cc", items)
+        for i, it in enumerate(items):
+            self.wait_to("write", i)
+            if i > 0:
+                if items[i-1].body.line2 is not None:
+                    items[i-1].body.line2.set_opacity(0)
+                it.next_to(items[i-1].body.line1, DOWN, buff=0.2,
+                           ).align_to(items[i-1], LEFT)
+                # it.to_edge(DOWN)
+            else:
+                it.next_to(title, DOWN, buff=0.2
+                           ).align_to(title, LEFT)
+
+
+            # # Start item hidden
+            it.set_opacity(1)  # item itself visible
+            it.label.set_opacity(1)
+            it.body.line1.set_opacity(1)
+
+            # Fade in label + line1 only
+            self.play(
+                FadeIn(it.label),
+                FadeIn(it.body.line1),
+                FadeIn(it.body.line2),
+                run_time=ITEM_FADEIN
+            )
+
+            # Show line2 briefly, then fade it out before next point
+            # if it.body.line2 is not None:
+            #     self.play(it.body.line2.animate.set_opacity(1), run_time=LINE2_FADEIN)
+            #     self.wait(LINE2_HOLD)
+            #     self.play(it.body.line2.animate.set_opacity(0), run_time=LINE2_FADEOUT)
+
+        self.wait_to("end")
+        self.play(FadeOut(title, items), run_time=1.0)
+        # self.remove(slide)
+        self.wait(2)
+
+
 
 
 class GatePreview(Scene):
@@ -1047,7 +1320,6 @@ class GatePreview(Scene):
 
         self.add(ckt)
         self.wait(2)
-
 
 class FontTest(Scene):
     def construct(self):

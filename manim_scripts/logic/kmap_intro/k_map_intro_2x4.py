@@ -845,23 +845,21 @@ class KMap3VarInstruct(*_Base):
         degen_txt.next_to(sop_ckt2, DOWN, buff=0.2
                           ).align_to(sop_ckt2, LEFT)
         self.wait_to("implicant b", 8)
-        implicant_ab_label.save_state()
+        # implicant_ab_label.save_state()
         self.play(implicant_ab_label.animate.shift(1.3*DOWN))
         self.play(Write(degen_txt))
 
         # endregion acnot+b circuit
 
-
-
         self.wait_to("implicant b", 9)
         self.play(Restore(implicant_ab_label),
                   Restore(implicant_acnot_label),
                   Restore(kmap_group),
-                  Restore(implicant_ab_label),
                   FadeOut(degen_txt),
                   FadeOut(sop_ckt2),
                   FadeOut(eqn_sop1),
                   run_time=2.0)
+        self.wait()
         # endregion implicant b
 
         # region implicant a
