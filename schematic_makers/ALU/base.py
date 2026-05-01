@@ -73,19 +73,18 @@ class Mux8(ic.Multiplexer):
 
 
 class Mux2(ic.Multiplexer):
-    def __init__(self, s_pin_name: str = "S", **kwargs):
+    def __init__(self, s_pin_name: str = "S",
+                 size=(1.4, 2.4), pinspacing=1, **kwargs):
         super().__init__(
             pins=[
                 ic.IcPin(name='I1', side='L'),
                 ic.IcPin(name='I0', side='L'),
                 ic.IcPin(name='Q',  side='R'),
                 ic.IcPin(name=s_pin_name, side='B'),
-                # ic.IcPin(name='S1', side='B'),
-                # ic.IcPin(name='EN', side='T', invert=True),
             ],
             edgepadH=0,
-            pinspacing=1,
-            size=(1.4, 2.4),
+            pinspacing=pinspacing,
+            size=size,
             **kwargs
         )
 
@@ -139,37 +138,88 @@ class Decoder8(ic.Multiplexer):
 
 
 class Shifter(ic.Ic):
-    def __init__(self, name: str = "Shifter\n", **kwargs):
+    def __init__(self, size=(3, 2), name: str = "Shifter\n", **kwargs):
         super().__init__(
             pins=[
                 ic.IcPin(name='B', side='L'),
                 ic.IcPin(name='A', side='L'),
+                ic.IcPin(name='dir', side='L'),
                 ic.IcPin(name="out", side='R'),
             ],
-            size=(3, 2),
+            size=size,
             label = name,
             pinspacing=1,
             edgepadH=1,
+            **kwargs
+        )
+
+
+class LogicBlock(ic.Ic):
+    def __init__(self,
+                 label="Block",
+                 left=None,
+                 right=None,
+                 top=None,
+                 bottom=None,
+                 size=(3,2),
+                 pinspacing=1,
+                 # edgepad=,
+                 **kwargs):
+
+        pins = []
+
+        if left:
+            for p in left:
+                pins.append(ic.IcPin(name=p, side='L'))
+
+        if right:
+            for p in right:
+                pins.append(ic.IcPin(name=p, side='R'))
+
+        if top:
+            for p in top:
+                pins.append(ic.IcPin(name=p, side='T'))
+
+        if bottom:
+            for p in bottom:
+                pins.append(ic.IcPin(name=p, side='B'))
+
+        super().__init__(
+            pins=pins,
+            size=size,
+            label=label,
+            pinspacing=pinspacing,
+            edgepadW=3,
             **kwargs
         )
 
 
 class FullAdder(ic.Ic):
-    def __init__(self, name: str = "Full Adder", **kwargs):
+    def __init__(self, name: str = "Full Adder", size=(3, 3),
+                 pinspacing=1, **kwargs):
         super().__init__(
             pins=[
                 ic.IcPin(name=r'Cin', side='L'),
                 ic.IcPin(name='B', side='L'),
                 ic.IcPin(name='A', side='L'),
-                ic.IcPin(name=r'$C_{out}$', side='R'),
+                ic.IcPin(name='Cout', side='R'),
                 ic.IcPin(name='Sum', side='R'),
             ],
-            size=(3, 3),
+            size=size,
             label = name,
-            pinspacing=1,
+            pinspacing=pinspacing,
             edgepadH=1,
             **kwargs
         )
+
+    # noinspection PyMethodOverriding
+    def pin(self, name):
+        if name not in self._pin_lookup:
+            valid = ", ".join(self._pin_lookup.keys())
+            raise ValueError(
+                f"Pin '{name}' does not exist. Valid pins: {valid}"
+            )
+        return self._pin_lookup[name]
 
 
 class Decoder3_8(ic.Ic):
