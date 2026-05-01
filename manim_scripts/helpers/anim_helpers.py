@@ -67,19 +67,21 @@ def pulse(mobj, scale=1.25, color=None,
     """
     box_buff *= scale
     rf = there_and_back_with_pause if pause else there_and_back
-    anims = [ApplyMethod(mobj.scale, scale, rate_func=rf)]
+
+    # anims = [ApplyMethod(mobj.scale, scale, rate_func=rf)]
+    anim = mobj.animate(rate_func=rf).scale(scale)
     if color is not None:
-        anims.append(ApplyMethod(mobj.set_color, color, rate_func=rf))
+        anim = anim.set_color(color)
+    anim = anim.set_run_time(run_time * (0.6 if add_box else 1.0))
 
     if add_box:
         box = SurroundingRectangle(
             mobj, buff=box_buff, color=box_color,
             stroke_width=box_stroke_width, corner_radius=box_corner_radius
         )
-        return Succession(Create(box),
-                          AnimationGroup(*anims, lag_ratio=0.0, run_time=run_time * 0.6),
-                          FadeOut(box),
-                          run_time=run_time
-                         )
+        return Succession(Create(box, run_time=run_time * 0.2),
+                          anim,
+                          FadeOut(box, run_time=run_time * 0.2),
+                          )
 
-    return AnimationGroup(*anims, lag_ratio=0.0, run_time=run_time)
+    return anim
